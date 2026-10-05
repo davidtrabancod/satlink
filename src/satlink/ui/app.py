@@ -1,13 +1,14 @@
 import streamlit as st
 import plotly.graph_objects as go
+import numpy as np
 import pandas as pd
 from streamlit_geolocation import streamlit_geolocation
 from satlink.core.fetcher import fetch_tle_by_group
-from satlink.core.propagator import OrbitPropagator
+from satlink.core.propagator import OrbitPropagator, latlon_to_cartesian, EARTH_RADIUS_KM
 from satlink.core.passes import PassPredictor
 from satlink.core.link_budget import SatelliteTransmitter, GroundStationReceiver, LinkBudgetCalculator
 
-# 1. Configuración de página
+# 1. Configuración de página (Primera instrucción de Streamlit)
 st.set_page_config(page_title="SatLink Studio", layout="wide")
 
 st.title("🛰️ SatLink Studio — Satellite & Ground Station Platform")
@@ -55,15 +56,15 @@ try:
     gs_alt = st.sidebar.number_input("Altitud (m)", key="gs_alt", step=10.0)
     min_el = st.sidebar.slider("Máscara Elevación (°)", min_value=0, max_value=30, value=10, key="min_el_slider")
 
-    # 5. PESTAÑAS PRINCIPALES
-    tab1, tab2, tab3 = st.tabs(["🌍 Real-time Tracker", "📡 Predicción de Pases & Skyplot", "📊 Link Budget (RF)"])
+    # 5. PESTAÑAS PRINCIPALES (AQUÍ ESTÁN LAS 4 PESTAÑAS)
+    tab1, tab2, tab3, tab4 = st.tabs(["🌍 Tracker 2D", "🌐 Globo 3D", "📡 Predicción de Pases", "📊 Link Budget (RF)"])
+
+    propagator = OrbitPropagator(tle_data["name"], tle_data["line1"], tle_data["line2"])
+    state = propagator.get_current_state()
+    ground_track = propagator.get_ground_track(minutes_past=50, minutes_future=50)
 
     # TAB 1: TRACKER 2D
     with tab1:
-        propagator = OrbitPropagator(tle_data["name"], tle_data["line1"], tle_data["line2"])
-        state = propagator.get_current_state()
-        ground_track = propagator.get_ground_track(minutes_past=50, minutes_future=50)
-
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Latitud", f"{state['latitude']:.4f}°")
         col2.metric("Longitud", f"{state['longitude']:.4f}°")
@@ -87,16 +88,101 @@ try:
         ))
         fig_map.update_layout(
             geo=dict(showland=True, landcolor="rgb(30, 30, 30)", showocean=True, oceancolor="rgb(10, 15, 30)", projection_type="equirectangular"),
-            margin=dict(l=0, r=0, t=20, b=0), height=500, template="plotly_dark"
+            margin=dict(l=0, r=0, t=20, b=0), height=550, template="plotly_dark"
         )
         st.plotly_chart(fig_map, use_container_width=True)
 
-    # Pre-calcular pases para TAB 2 y TAB 3
+    # TAB 2: VISUALIZACIÓN GLOBO 3D
+    with tab2:
+        st.subheader(f"Órbita Tridimensional 3D — {state['name']}")
+
+        # 1. Malla de la Tierra (Esfera)
+        phi = np.linspace(-np.pi/2, np.pi/2, 35)
+        theta = np.linspace(-np.pi, np.pi, 35)
+        phi, theta = np.meshgrid(phi, theta)
+        x_sphere = EARTH_RADIUS_KM * np.cos(phi) * np.cos(theta)
+        y_sphere = EARTH_RADIUS_KM * np.cos(phi) * np.sin(theta)
+        z_sphere = EARTH_RADIUS_KM * np.sin(phi)
+
+        # 2. Transformación a cartesiana ECEF
+        orbit_x, orbit_y, orbit_z = latlon_to_cartesian(
+            ground_track["latitude"].values,
+            ground_track["longitude"].values,
+            ground_track["altitude_km"].values
+        )
+        sat_x, sat_y, sat_z = latlon_to_cartesian(
+            state["latitude"], state["longitude"], state["altitude_km"]
+        )
+        gs_x, gs_y, gs_z = latlon_to_cartesian(gs_lat, gs_lon, gs_alt / 1000.0)
+
+        fig_3d = go.Figure()
+
+        # Esfera Terrestre translúcida con líneas continentales sutiles
+        fig_3d.add_trace(go.Surface(
+            x=x_sphere, y=y_sphere, z=z_sphere,
+            colorscale=[[0, "#103050"], [1, "#1e4065"]],
+            opacity=0.4,
+            showscale=False,
+            lighting=dict(ambient=0.8, diffuse=0.5),
+            name="Tierra"
+        ))
+
+        # Órbita 3D brillante
+        fig_3d.add_trace(go.Scatter3d(
+            x=orbit_x, y=orbit_y, z=orbit_z,
+            mode="lines",
+            line=dict(color="#00ffff", width=5),
+            name="Órbita (±50 min)"
+        ))
+
+        # Satélite 3D destacado
+        fig_3d.add_trace(go.Scatter3d(
+            x=[sat_x], y=[sat_y], z=[sat_z],
+            mode="markers+text",
+            marker=dict(size=8, color="#ff3333", symbol="diamond"),
+            text=[f"  {state['name']}"],
+            textposition="top right",
+            name="Satélite"
+        ))
+
+        # Estación Terrestre 3D
+        fig_3d.add_trace(go.Scatter3d(
+            x=[gs_x], y=[gs_y], z=[gs_z],
+            mode="markers+text",
+            marker=dict(size=7, color="#ffcc00", symbol="circle"),
+            text=["  Estación Terrestre"],
+            textposition="top right",
+            name="Ground Station"
+        ))
+
+        # Línea de vista (LOS)
+        fig_3d.add_trace(go.Scatter3d(
+            x=[gs_x, sat_x], y=[gs_y, sat_y], z=[gs_z, sat_z],
+            mode="lines",
+            line=dict(color="#ffcc00", width=3, dash="dash"),
+            name="Línea de Vista (LOS)"
+        ))
+
+        # Estilo visual de espacio profundo (Fondo negro, sin cajas)
+        fig_3d.update_layout(
+            template="plotly_dark",
+            scene=dict(
+                xaxis=dict(title="X (km)", showbackground=False, gridcolor="#222222"),
+                yaxis=dict(title="Y (km)", showbackground=False, gridcolor="#222222"),
+                zaxis=dict(title="Z (km)", showbackground=False, gridcolor="#222222"),
+                aspectmode="data"
+            ),
+            height=650,
+            margin=dict(l=0, r=0, t=20, b=0)
+        )
+
+        st.plotly_chart(fig_3d, use_container_width=True)
+    # Pre-calcular pases para TAB 3 y TAB 4
     predictor = PassPredictor(tle_data["name"], tle_data["line1"], tle_data["line2"])
     passes = predictor.predict_passes(gs_lat, gs_lon, alt_m=gs_alt, days=3, min_elevation_deg=min_el)
 
-    # TAB 2: PREDICCIÓN DE PASES Y SKYPLOT
-    with tab2:
+    # TAB 3: PREDICCIÓN DE PASES Y SKYPLOT
+    with tab3:
         st.subheader(f"Próximos pases sobre la Estación ({gs_lat:.2f}°, {gs_lon:.2f}°)")
 
         if not passes:
@@ -159,8 +245,8 @@ try:
             )
             st.plotly_chart(fig_polar, use_container_width=True)
 
-    # TAB 3: LINK BUDGET & RF ANALYSIS
-    with tab3:
+    # TAB 4: LINK BUDGET & RF ANALYSIS
+    with tab4:
         st.subheader("⚙️ Parámetros de la Cadena de Radiofrecuencia (RF)")
 
         rf_col1, rf_col2 = st.columns(2)
@@ -196,19 +282,16 @@ try:
                 gs_lat, gs_lon, target_pass["aos_time"], target_pass["los_time"], step_seconds=5, alt_m=gs_alt
             )
 
-            # Instanciar calculador de Link Budget
             tx = SatelliteTransmitter(freq_mhz, tx_power_dbw, tx_gain_dbi, tx_losses_db)
             rx = GroundStationReceiver(rx_gain_dbi, system_temp_k, bandwidth_khz * 1000.0, rx_losses_db, required_ebn0)
             calc = LinkBudgetCalculator(tx, rx)
 
-            # Evaluar el enlace para cada punto de la trayectoria
             rf_results = calc.evaluate_link(traj_rf["range_km"].values)
             traj_rf["fspl_db"] = rf_results["fspl_db"]
             traj_rf["received_power_dbw"] = rf_results["received_power_dbw"]
             traj_rf["cn_ratio_db"] = rf_results["cn_ratio_db"]
             traj_rf["link_margin_db"] = rf_results["link_margin_db"]
 
-            # Métricas resumen del pase
             m_col1, m_col2, m_col3, m_col4 = st.columns(4)
             m_col1.metric("EIRP Satélite", f"{tx.eirp_dbw:.2f} dBW")
             m_col2.metric("FSPL Máxima (AOS/LOS)", f"{traj_rf['fspl_db'].max():.1f} dB")
@@ -222,24 +305,17 @@ try:
                 delta_color="normal" if min_margin >= 0 else "inverse"
             )
 
-            # Gráficas de evolución temporal de RF durante el pase
             st.subheader("Evolución del Enlace durante el Pase")
 
             fig_rf = go.Figure()
-            
-            # Traza de C/N
             fig_rf.add_trace(go.Scatter(
                 x=traj_rf["datetime"], y=traj_rf["cn_ratio_db"],
                 mode="lines", name="Relación C/N (dB)", line=dict(color="cyan", width=2)
             ))
-            
-            # Traza de Margen de Enlace
             fig_rf.add_trace(go.Scatter(
                 x=traj_rf["datetime"], y=traj_rf["link_margin_db"],
                 mode="lines", name="Margen de Enlace (dB)", line=dict(color="lime", width=2)
             ))
-
-            # Línea umbral de margen = 0 dB
             fig_rf.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="Umbral de Recepción (0 dB)")
 
             fig_rf.update_layout(
