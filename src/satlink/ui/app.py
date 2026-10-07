@@ -29,6 +29,7 @@ st.markdown("""
     :root {
         --canvas: #081316;
         --panel: #101f22;
+        --panel-raised: #15282a;
         --line: rgba(113, 215, 193, 0.2);
         --mint: #71d7c1;
         --amber: #f5bd67;
@@ -61,34 +62,263 @@ st.markdown("""
     }
 
     [data-testid="stSidebar"] {
-        background: rgba(10, 24, 26, 0.96);
+        background:
+            radial-gradient(ellipse at 0% 0%, rgba(113, 215, 193, 0.1), transparent 36%),
+            linear-gradient(180deg, rgba(13, 29, 31, 0.99), rgba(8, 19, 22, 0.99)) !important;
         border-right: 1px solid var(--line);
     }
 
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 {
-        border-left: 3px solid var(--mint) !important;
-        padding-left: 10px !important;
-        margin-top: 20px !important;
-        margin-bottom: 12px !important;
+    [data-testid="stSidebarContent"] {
+        padding-top: 0 !important;
     }
 
-    [data-testid="stWidgetLabel"] p,
+    [data-testid="stSidebarHeader"] {
+        height: 44px !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+    }
+
+    [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] button {
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] button {
+        border: 1px solid var(--line) !important;
+        border-radius: 5px !important;
+        background: rgba(113, 215, 193, 0.07) !important;
+        color: var(--mint) !important;
+    }
+
+    .sidebar-identity {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        padding: 0 0 8px;
+        margin: 0 0 4px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .sidebar-identity-copy {
+        min-width: 0;
+    }
+
+    .sidebar-identity-title {
+        color: #f5fffc;
+        font: 700 23px/1 'Rajdhani', sans-serif;
+        white-space: nowrap;
+        text-shadow: 0 0 14px rgba(113, 215, 193, 0.35);
+    }
+
+    .sidebar-section {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 9px;
+        padding: 0 0 11px;
+        margin: 8px 0 13px;
+        border-bottom: 1px solid rgba(113, 215, 193, 0.16);
+    }
+
+    .sidebar-section-index {
+        display: grid;
+        width: 32px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid rgba(113, 215, 193, 0.32);
+        border-radius: 4px;
+        background: rgba(113, 215, 193, 0.08);
+        color: var(--mint);
+        font: 500 12px 'DM Mono', monospace;
+    }
+
+    .sidebar-section-copy {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .sidebar-section-kicker {
+        color: var(--muted);
+        font: 400 9px/1.15 'DM Mono', monospace;
+        text-transform: uppercase;
+    }
+
+    .sidebar-section-title {
+        color: var(--text);
+        font: 700 17px/1.05 'Rajdhani', sans-serif;
+        text-transform: uppercase;
+    }
+
+    .sidebar-section-badge {
+        padding: 3px 5px;
+        border: 1px solid rgba(245, 189, 103, 0.3);
+        border-radius: 3px;
+        color: var(--amber);
+        font: 400 9px 'DM Mono', monospace;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        color: #b8c9c3;
+        font-size: 15px;
+        font-weight: 600;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stSelectbox"] [role="group"] {
+        min-height: 42px;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stSelectbox"],
+    [data-testid="stSidebar"] [data-testid="stNumberInput"] {
+        margin-bottom: 8px;
+    }
+
+    [data-testid="stSidebar"] iframe[title="streamlit_geolocation.streamlit_geolocation"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 46px !important;
+        border: 0;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(iframe[title="streamlit_geolocation.streamlit_geolocation"]) {
+        order: 99;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has([data-testid="stAlert"]) {
+        order: 98;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.gps-confirmation) {
+        order: 98;
+    }
+
+    .gps-confirmation {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        box-sizing: border-box;
+        max-height: 44px;
+        padding: 8px 10px;
+        overflow: hidden;
+        border: 1px solid rgba(113, 215, 193, 0.38);
+        border-radius: 5px;
+        background: linear-gradient(120deg, rgba(21, 40, 42, 0.98), rgba(13, 28, 30, 0.98));
+        color: var(--text);
+        font: 600 15px/1.15 'Rajdhani', sans-serif;
+        box-shadow: 0 0 14px rgba(113, 215, 193, 0.1);
+        animation: gps-confirmation-dismiss 3s ease-in forwards;
+    }
+
+    .gps-confirmation-icon {
+        display: grid;
+        flex: 0 0 20px;
+        width: 20px;
+        height: 20px;
+        place-items: center;
+        border: 1px solid rgba(113, 215, 193, 0.35);
+        border-radius: 50%;
+        background: rgba(113, 215, 193, 0.12);
+        color: var(--mint);
+        font: 700 12px 'DM Mono', monospace;
+    }
+
+    @keyframes gps-confirmation-dismiss {
+        0%, 78% { opacity: 1; max-height: 44px; padding-top: 8px; padding-bottom: 8px; margin-top: 0; }
+        100% { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: -8px; border-color: transparent; transform: translateY(-4px); visibility: hidden; }
+    }
+
+    [data-testid="stWidgetLabel"] p {
+        color: #d0ded9;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
     [data-testid="stMarkdownContainer"] p {
         color: #c3d2cd;
     }
 
-    [data-baseweb="select"] > div,
-    [data-testid="stNumberInput"] input {
-        background-color: var(--panel) !important;
-        border-color: var(--line) !important;
+    [data-testid="stSelectbox"] [role="group"] {
+        background: var(--panel) !important;
+        border: 1px solid var(--line) !important;
         border-radius: 5px !important;
-        color: var(--text) !important;
+        transition: border-color 150ms ease, box-shadow 150ms ease;
     }
 
-    [data-testid="stSlider"] [role="slider"] {
-        background-color: var(--mint) !important;
+    [data-testid="stSelectbox"] [role="group"]:focus-within {
         border-color: var(--mint) !important;
+        box-shadow: 0 0 0 1px rgba(113, 215, 193, 0.22);
+    }
+
+    [data-testid="stSelectbox"] input {
+        background: transparent !important;
+        border: 0 !important;
+        color: var(--text) !important;
+        font-family: 'Rajdhani', sans-serif !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+    }
+
+    [data-testid="stSelectbox"] button {
+        background: transparent !important;
+        border: 0 !important;
+        color: var(--mint) !important;
+    }
+
+    [role="listbox"] {
+        background: var(--panel-raised) !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 5px !important;
+    }
+
+    [role="option"] { color: var(--text) !important; }
+    [role="option"][aria-selected="true"] {
+        background: rgba(113, 215, 193, 0.15) !important;
+        color: var(--mint) !important;
+    }
+
+    [data-testid="stNumberInputContainer"] {
+        overflow: hidden;
+        background: var(--panel) !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 5px !important;
+        transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    [data-testid="stNumberInputContainer"]:focus-within {
+        border-color: var(--mint) !important;
+        box-shadow: 0 0 0 1px rgba(113, 215, 193, 0.22);
+    }
+
+    [data-testid="stNumberInputField"] {
+        background: transparent !important;
+        border: 0 !important;
+        color: var(--text) !important;
+        font-family: 'DM Mono', monospace !important;
+        font-size: 14px !important;
+    }
+
+    [data-testid="stNumberInputStepDown"],
+    [data-testid="stNumberInputStepUp"] {
+        background: var(--panel-raised) !important;
+        border-left: 1px solid var(--line) !important;
+        color: var(--mint) !important;
+        transition: background 150ms ease;
+    }
+
+    [data-testid="stNumberInputStepDown"]:hover,
+    [data-testid="stNumberInputStepUp"]:hover {
+        background: rgba(113, 215, 193, 0.14) !important;
+    }
+
+    [data-testid="stSlider"] [data-testid="stSliderThumbValue"] {
+        background: var(--panel-raised) !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 4px !important;
+        color: var(--mint) !important;
+        font-family: 'DM Mono', monospace !important;
     }
 
     [data-testid="stMetric"] {
@@ -110,6 +340,10 @@ st.markdown("""
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         width: 100%;
+        overflow: hidden;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 5px;
     }
 
     [role="radiogroup"] [role="radio"] {
@@ -118,14 +352,23 @@ st.markdown("""
         font-family: 'Rajdhani', sans-serif !important;
         font-size: 16px !important;
         font-weight: 700 !important;
-        border-color: var(--line) !important;
+        background: var(--panel) !important;
+        border: 0 !important;
+        border-right: 1px solid var(--line) !important;
+        border-radius: 0 !important;
+        color: #c3d2cd !important;
         white-space: normal;
         line-height: 1.1;
+        transition: background 150ms ease, color 150ms ease;
     }
 
     [role="radiogroup"] [role="radio"][aria-checked="true"] {
-        background: rgba(113, 215, 193, 0.16) !important;
+        background: rgba(113, 215, 193, 0.14) !important;
         color: var(--mint) !important;
+    }
+
+    [role="radiogroup"] [role="radio"]:hover {
+        background: rgba(113, 215, 193, 0.08) !important;
     }
 
     [data-testid="stDataFrame"] {
@@ -192,12 +435,16 @@ st.markdown("""
 
     .wordmark-satlink {
         color: #f5fffc;
-        text-shadow: 0 0 8px rgba(113, 215, 193, 0.65), 0 0 28px rgba(113, 215, 193, 0.25);
+        font-size: 76px;
+        font-weight: 700;
+        text-shadow: 0 0 10px rgba(113, 215, 193, 0.75), 0 0 34px rgba(113, 215, 193, 0.38);
     }
 
     .wordmark-studio {
-        color: var(--mint);
-        text-shadow: 0 0 8px rgba(113, 215, 193, 0.85), 0 0 25px rgba(113, 215, 193, 0.45);
+        color: rgba(113, 215, 193, 0.84);
+        font-size: 43px;
+        font-weight: 600;
+        text-shadow: 0 0 8px rgba(113, 215, 193, 0.38);
     }
 
     .masthead-description {
@@ -237,7 +484,9 @@ st.markdown("""
         .block-container { padding: 1rem 1rem 2rem; }
         [data-testid="stMetric"] { min-height: 92px; padding: 10px 12px !important; }
         [data-testid="stMetricValue"] { font-size: 19px !important; }
-        .satlink-wordmark { font-size: 44px; gap: 0 12px; }
+        .satlink-wordmark { gap: 0 12px; }
+        .wordmark-satlink { font-size: 50px; }
+        .wordmark-studio { font-size: 30px; }
         .masthead-description { font-size: 14px; }
         [role="radiogroup"] {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -277,9 +526,34 @@ if "gs_lon" not in st.session_state:
     st.session_state.gs_lon = -5.6615
 if "gs_alt" not in st.session_state:
     st.session_state.gs_alt = 10.0
+if "gs_using_location" not in st.session_state:
+    st.session_state.gs_using_location = False
+if "_gs_location_signature" not in st.session_state:
+    st.session_state._gs_location_signature = None
+
+
+def _mark_ground_station_manual():
+    st.session_state.gs_using_location = False
 
 # 4. BARRA LATERAL (CONFIGURACIÓN)
-st.sidebar.markdown("### 01. CONFIGURACIÓN DE SATÉLITE")
+st.sidebar.markdown("""
+<div class="sidebar-identity">
+    <div class="sidebar-identity-copy">
+        <span class="sidebar-identity-title">MISSION CONSOLE</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+<div class="sidebar-section" role="heading" aria-level="3">
+    <span class="sidebar-section-index">01</span>
+    <span class="sidebar-section-copy">
+        <span class="sidebar-section-kicker">Configuración satelital</span>
+        <span class="sidebar-section-title">Satélite</span>
+    </span>
+    <span class="sidebar-section-badge">TLE</span>
+</div>
+""", unsafe_allow_html=True)
 group = st.sidebar.selectbox("Grupo CelesTrak", ["stations", "starlink", "geo", "active"], index=0)
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -295,20 +569,45 @@ try:
 
     tle_data = next(s for s in sat_list if s["name"] == selected_name)
 
-    st.sidebar.markdown("### 02. ESTACIÓN TERRESTRE (GS)")
+    st.sidebar.markdown("""
+    <div class="sidebar-section" role="heading" aria-level="3">
+        <span class="sidebar-section-index">02</span>
+        <span class="sidebar-section-copy">
+            <span class="sidebar-section-kicker">Segmento terrestre</span>
+            <span class="sidebar-section-title">Estación terrestre</span>
+        </span>
+        <span class="sidebar-section-badge">GS</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     with st.sidebar:
         location = streamlit_geolocation()
 
-    if location and location.get("latitude") is not None:
-        st.session_state.gs_lat = float(location["latitude"])
-        st.session_state.gs_lon = float(location["longitude"])
-        if location.get("altitude") is not None:
-            st.session_state.gs_alt = float(location["altitude"])
-        st.sidebar.success("📍 GPS detectado correctamente")
+    if location and location.get("latitude") is not None and location.get("longitude") is not None:
+        location_signature = tuple(
+            location.get(field)
+            for field in ("latitude", "longitude", "altitude", "accuracy", "altitudeAccuracy", "heading", "speed")
+        )
+        if location_signature != st.session_state._gs_location_signature:
+            st.session_state._gs_location_signature = location_signature
+            st.session_state.gs_lat = float(location["latitude"])
+            st.session_state.gs_lon = float(location["longitude"])
+            if location.get("altitude") is not None:
+                st.session_state.gs_alt = float(location["altitude"])
+            st.session_state.gs_using_location = True
+            st.sidebar.markdown("""
+            <div class="gps-confirmation" role="status">
+                <span class="gps-confirmation-icon" aria-hidden="true">✓</span>
+                <span>GPS detectado correctamente</span>
+            </div>
+            """, unsafe_allow_html=True)
 
-    gs_lat = st.sidebar.number_input("Latitud (°)", key="gs_lat", format="%.4f")
-    gs_lon = st.sidebar.number_input("Longitud (°)", key="gs_lon", format="%.4f")
+    gs_lat = st.sidebar.number_input(
+        "Latitud (°)", key="gs_lat", format="%.4f", on_change=_mark_ground_station_manual
+    )
+    gs_lon = st.sidebar.number_input(
+        "Longitud (°)", key="gs_lon", format="%.4f", on_change=_mark_ground_station_manual
+    )
     gs_alt = st.sidebar.number_input("Altitud (m)", key="gs_alt", step=10.0)
     min_el = st.sidebar.slider("Máscara Elevación (°)", min_value=0, max_value=30, value=10, key="min_el_slider")
 
@@ -346,6 +645,110 @@ try:
     if passes and upcoming:
         target_timestamp = int(upcoming[0]["aos_time"].timestamp() if now_utc < upcoming[0]["aos_time"] else upcoming[0]["los_time"].timestamp())
 
+    location_button_label = "USANDO UBICACIÓN" if st.session_state.gs_using_location else "USAR MI UBICACIÓN"
+    location_button_accessible_label = "Usando ubicación" if st.session_state.gs_using_location else "Usar mi ubicación actual"
+    location_button_script = """
+    const hookedLocationFrames = new WeakSet();
+    const observedLocationDocuments = new WeakSet();
+
+    function styleLocationButton() {
+        let locationFrame;
+        try {
+            locationFrame = window.parent.document.querySelector(
+                '[data-testid="stSidebar"] iframe[title="streamlit_geolocation.streamlit_geolocation"]'
+            );
+        } catch {
+            return false;
+        }
+        if (!locationFrame) return false;
+
+        const applyStyle = () => {
+            try {
+                const locationDocument = locationFrame.contentDocument;
+                if (!locationDocument) return;
+
+                let style = locationDocument.getElementById("satlink-location-style");
+                if (!style) {
+                    style = locationDocument.createElement("style");
+                    style.id = "satlink-location-style";
+                    locationDocument.head.appendChild(style);
+                }
+                style.textContent = `
+                    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap');
+                    :root { color-scheme: dark; }
+                    html, body, #root { width: 100%; height: 100%; margin: 0; background: transparent !important; }
+                    #root { display: flex; align-items: center; }
+                    button {
+                        box-sizing: border-box;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 9px;
+                        width: 100%;
+                        height: 42px;
+                        padding: 0 12px;
+                        border: 1px solid rgba(113, 215, 193, 0.42);
+                        border-radius: 5px;
+                        background: linear-gradient(120deg, #15282a, #102022);
+                        color: #edf4ef;
+                        font: 600 14px 'Rajdhani', sans-serif;
+                        cursor: pointer;
+                        transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+                    }
+                    button::after { content: "${gpsButtonLabel}"; }
+                    button[data-gps-using="true"] {
+                        border-color: rgba(113, 215, 193, 0.78);
+                        background: linear-gradient(120deg, rgba(113, 215, 193, 0.16), rgba(21, 40, 42, 0.98));
+                        color: #71d7c1;
+                        box-shadow: inset 0 0 12px rgba(113, 215, 193, 0.08);
+                    }
+                    button:hover {
+                        border-color: #71d7c1;
+                        background: rgba(113, 215, 193, 0.14);
+                        box-shadow: 0 0 12px rgba(113, 215, 193, 0.16);
+                    }
+                    button:focus-visible { outline: 2px solid #71d7c1; outline-offset: 2px; }
+                    button svg { width: 17px; height: 17px; color: #71d7c1; }
+                `;
+
+                const labelButton = () => {
+                    const currentButton = locationDocument.querySelector("button");
+                    if (currentButton) {
+                        currentButton.setAttribute("aria-label", gpsButtonAccessibleLabel);
+                        currentButton.title = gpsButtonAccessibleLabel;
+                        currentButton.setAttribute("data-gps-using", String(gpsUsingLocation));
+                    }
+                };
+                labelButton();
+                if (!observedLocationDocuments.has(locationDocument)) {
+                    new MutationObserver(labelButton).observe(locationDocument.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                    observedLocationDocuments.add(locationDocument);
+                }
+            } catch {
+                return;
+            }
+        };
+
+        if (!hookedLocationFrames.has(locationFrame)) {
+            locationFrame.addEventListener("load", applyStyle);
+            hookedLocationFrames.add(locationFrame);
+        }
+        applyStyle();
+        return true;
+    }
+
+    const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+    if (sidebar) {
+        new MutationObserver(styleLocationButton).observe(sidebar, { childList: true, subtree: true });
+    }
+    styleLocationButton();
+    window.setTimeout(styleLocationButton, 200);
+    window.setTimeout(styleLocationButton, 800);
+    """
+
     hud_html = f"""
     <!DOCTYPE html>
     <html>
@@ -354,30 +757,50 @@ try:
         <style>
             body {{ margin: 0; padding: 0; background-color: transparent; font-family: 'Rajdhani', sans-serif; color: #edf4ef; }}
             .mission-hud-box {{
-                background: linear-gradient(110deg, rgba(18, 37, 39, 0.98), rgba(13, 27, 30, 0.96));
-                border: 1px solid rgba(113, 215, 193, 0.24);
-                border-radius: 5px; padding: 13px 8px;
+                padding: 5px 0;
                 display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-                text-align: center; gap: 8px 0;
+                gap: 9px;
             }}
-            .hud-label {{ font-size: 12px; font-weight: 700; color: #91a8a2; text-transform: uppercase; }}
-            .hud-value {{ font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: #71d7c1; overflow-wrap: anywhere; }}
-            .mission-hud-box > div + div {{ border-left: 1px solid rgba(113, 215, 193, 0.14); }}
+            .hud-cell {{
+                position: relative; display: flex; min-width: 0; min-height: 68px;
+                flex-direction: column; justify-content: center; align-items: center; gap: 5px;
+                padding: 9px 8px; overflow: hidden; text-align: center;
+                background: linear-gradient(145deg, rgba(22, 43, 44, 0.96), rgba(13, 28, 30, 0.96));
+                border: 1px solid rgba(113, 215, 193, 0.18); border-radius: 5px;
+                box-shadow: inset 0 1px rgba(255, 255, 255, 0.025), 0 5px 14px rgba(0, 0, 0, 0.12);
+            }}
+            .hud-cell::before {{
+                content: ""; position: absolute; top: 0; left: 22%; width: 56%; height: 2px;
+                background: linear-gradient(90deg, transparent, var(--tile-accent), transparent);
+                box-shadow: 0 0 9px var(--tile-accent);
+            }}
+            .hud-cell:nth-child(1) {{ --tile-accent: #71d7c1; }}
+            .hud-cell:nth-child(2) {{ --tile-accent: #f5bd67; }}
+            .hud-cell:nth-child(3) {{ --tile-accent: #91b8f2; }}
+            .hud-cell:nth-child(4) {{ --tile-accent: #ed9a8d; }}
+            .hud-label {{ display: flex; align-items: center; justify-content: center; gap: 5px; color: #d0ded9; font-size: 13px; font-weight: 700; line-height: 1.15; text-transform: uppercase; }}
+            .hud-value {{ color: var(--tile-accent); font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; text-shadow: 0 0 10px color-mix(in srgb, var(--tile-accent) 24%, transparent); }}
             @media (max-width: 700px) {{
-                .mission-hud-box {{ grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 11px 4px; }}
-                .mission-hud-box > div:nth-child(3) {{ border-left: 0; }}
-                .hud-value {{ font-size: 12px; }}
+                .mission-hud-box {{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }}
+                .hud-cell {{ min-height: 30px; gap: 3px; padding: 5px 6px; }}
+                .hud-label {{ font-size: 12px; }}
+                .hud-value {{ font-size: 14px; }}
             }}
         </style>
     </head>
     <body>
         <div class="mission-hud-box">
-            <div><div class="hud-label">🛰️ Satélite Activo</div><div class="hud-value">{selected_name}</div></div>
-            <div><div class="hud-label">📡 Estación Terrestre</div><div class="hud-value">{gs_lat:.2f}°, {gs_lon:.2f}°</div></div>
-            <div><div class="hud-label">⏳ {pass_label}</div><div class="hud-value">{countdown_str}</div></div>
-            <div><div class="hud-label">🕒 Reloj Misión UTC</div><div id="hud-utc-clock" class="hud-value">--:--:-- UTC</div></div>
+            <div class="hud-cell"><div class="hud-label">🛰️ Satélite Activo</div><div class="hud-value">{selected_name}</div></div>
+            <div class="hud-cell"><div class="hud-label">📡 Estación Terrestre</div><div class="hud-value">{gs_lat:.2f}°, {gs_lon:.2f}°</div></div>
+            <div class="hud-cell"><div class="hud-label">⏳ {pass_label}</div><div class="hud-value">{countdown_str}</div></div>
+            <div class="hud-cell"><div class="hud-label">🕒 Reloj Misión UTC</div><div id="hud-utc-clock" class="hud-value">--:--:-- UTC</div></div>
         </div>
         <script>
+            const gpsButtonLabel = "{location_button_label}";
+            const gpsButtonAccessibleLabel = "{location_button_accessible_label}";
+            const gpsUsingLocation = {str(st.session_state.gs_using_location).lower()};
+            {location_button_script}
+
             function updateClock() {{
                 const now = new Date();
                 document.getElementById('hud-utc-clock').innerText = `${{String(now.getUTCHours()).padStart(2,'0')}}:${{String(now.getUTCMinutes()).padStart(2,'0')}}:${{String(now.getUTCSeconds()).padStart(2,'0')}} UTC`;
