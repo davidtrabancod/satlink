@@ -1,7 +1,9 @@
+import json
 import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from datetime import datetime, timezone
 from streamlit_geolocation import streamlit_geolocation
 
@@ -24,26 +26,26 @@ st.set_page_config(
 # 2. SISTEMA VISUAL
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
     :root {
-        --canvas: #081316;
-        --panel: #101f22;
-        --panel-raised: #15282a;
-        --line: rgba(113, 215, 193, 0.2);
-        --mint: #71d7c1;
-        --amber: #f5bd67;
-        --text: #edf4ef;
-        --muted: #91a8a2;
+        --canvas: #020d1b;
+        --panel: #071c2d;
+        --panel-raised: #0d2d45;
+        --line: rgba(99, 212, 255, 0.24);
+        --mint: #67d4ff;
+        --amber: #9fc7ff;
+        --text: #edf8ff;
+        --muted: #9fbad3;
     }
 
     .stApp {
         color: var(--text);
         background-color: var(--canvas) !important;
         background-image:
-            linear-gradient(rgba(113, 215, 193, 0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(113, 215, 193, 0.025) 1px, transparent 1px),
-            radial-gradient(ellipse at 60% -20%, rgba(52, 132, 119, 0.2), transparent 58%) !important;
+            linear-gradient(rgba(103, 212, 255, 0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(103, 212, 255, 0.035) 1px, transparent 1px),
+            radial-gradient(ellipse at 60% -20%, rgba(47, 115, 255, 0.22), transparent 58%) !important;
         background-size: 44px 44px, 44px 44px, auto;
         background-attachment: fixed !important;
     }
@@ -322,59 +324,275 @@ st.markdown("""
     }
 
     [data-testid="stMetric"] {
+        position: relative;
+        overflow: hidden;
         min-height: 104px;
         background: linear-gradient(145deg, rgba(21, 40, 42, 0.96), rgba(13, 28, 30, 0.96)) !important;
         border: 1px solid var(--line) !important;
         border-top: 2px solid var(--mint) !important;
         border-radius: 5px !important;
         padding: 14px 16px !important;
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.025), 0 5px 18px rgba(0, 0, 0, 0.16);
+    }
+
+    [data-testid="stMetric"]::before {
+        content: "";
+        position: absolute;
+        z-index: 0;
+        top: 0;
+        bottom: 0;
+        left: -38%;
+        width: 28%;
+        background: linear-gradient(90deg, transparent, rgba(113, 215, 193, 0.13), transparent);
+        transform: skewX(-18deg);
+        pointer-events: none;
+        animation: telemetry-scan 9s ease-in-out infinite;
+    }
+
+    [data-testid="stMetric"]::after {
+        content: "LIVE";
+        position: absolute;
+        z-index: 1;
+        top: 10px;
+        right: 12px;
+        padding: 2px 5px;
+        border: 1px solid rgba(113, 215, 193, 0.28);
+        border-radius: 3px;
+        color: rgba(113, 215, 193, 0.72);
+        font: 500 9px 'DM Mono', monospace;
+        letter-spacing: 1px;
+        pointer-events: none;
+        animation: telemetry-live 2.4s ease-in-out infinite;
+    }
+
+    [data-testid="stMetricLabel"],
+    [data-testid="stMetricValue"] {
+        position: relative;
+        z-index: 2;
+    }
+
+    [data-testid="stMetricLabel"] {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding-right: 48px;
+    }
+
+    [data-testid="stMetricLabel"]::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        flex: 0 0 6px;
+        border-radius: 50%;
+        background: var(--mint);
+        box-shadow: 0 0 7px var(--mint);
+        animation: telemetry-pulse 1.8s ease-in-out infinite;
     }
 
     [data-testid="stMetricValue"] {
         font-family: 'DM Mono', monospace !important;
         color: var(--mint) !important;
         font-size: 23px !important;
+        text-shadow: 0 0 12px rgba(113, 215, 193, 0.24);
+    }
+
+    @keyframes telemetry-scan {
+        0%, 18% { transform: translateX(0) skewX(-18deg); opacity: 0; }
+        28% { opacity: 1; }
+        68% { opacity: 0.72; }
+        100% { transform: translateX(520%) skewX(-18deg); opacity: 0; }
+    }
+
+    @keyframes telemetry-live {
+        0%, 100% { border-color: rgba(113, 215, 193, 0.22); color: rgba(113, 215, 193, 0.58); }
+        50% { border-color: rgba(113, 215, 193, 0.68); color: var(--mint); }
+    }
+
+    @keyframes telemetry-pulse {
+        0%, 100% { opacity: 0.62; transform: scale(0.82); }
+        50% { opacity: 1; transform: scale(1.12); }
     }
 
     [role="radiogroup"] {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         width: 100%;
-        overflow: hidden;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 5px;
+        overflow: visible;
+        gap: 1px;
+        padding: 1px;
+        background: linear-gradient(135deg, rgba(113, 215, 193, 0.18), rgba(113, 215, 193, 0.04));
+        border: 1px solid rgba(113, 215, 193, 0.22);
+        border-radius: 7px;
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 8px 24px rgba(0, 0, 0, 0.14);
     }
 
     [role="radiogroup"] [role="radio"] {
-        min-height: 42px;
+        position: relative;
+        min-height: 48px;
         min-width: 0;
-        font-family: 'Rajdhani', sans-serif !important;
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        background: var(--panel) !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.1px;
+        background-color: rgba(9, 24, 27, 0.96) !important;
+        justify-content: flex-start !important;
+        padding-left: 70px !important;
+        text-align: left !important;
+        background-repeat: no-repeat;
+        background-position: 0 50%, -30px center;
+        background-size: 150px 100%, 116px 116px;
+        background-blend-mode: screen, normal;
         border: 0 !important;
-        border-right: 1px solid var(--line) !important;
+        border-right: 1px solid rgba(113, 215, 193, 0.12) !important;
         border-radius: 0 !important;
         color: #c3d2cd !important;
         white-space: normal;
         line-height: 1.1;
-        transition: background 150ms ease, color 150ms ease;
+        overflow: hidden;
+        isolation: isolate;
+        transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+
+    [role="radiogroup"] [role="radio"]:nth-child(1) {
+        background-image: radial-gradient(circle at 0 50%, rgba(113, 215, 193, 0.2), transparent 62%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Ccircle cx='32' cy='32' r='23' stroke='%2371d7c1' stroke-width='2' opacity='.62'/%3E%3Cpath d='M32 7v9M32 48v9M7 32h9M48 32h9' stroke='%2371d7c1' stroke-width='2' opacity='.58'/%3E%3Cpath d='m39 24-5 16-9 4 5-16 9-4Z' stroke='%2371d7c1' stroke-width='2.5' opacity='.95'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%2371d7c1'/%3E%3C/svg%3E");
+    }
+
+    [role="radiogroup"] [role="radio"]:nth-child(2) {
+        background-image: radial-gradient(circle at 0 50%, rgba(113, 215, 193, 0.2), transparent 62%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Ccircle cx='32' cy='32' r='23' stroke='%2371d7c1' stroke-width='2' opacity='.62'/%3E%3Cellipse cx='32' cy='32' rx='10' ry='23' stroke='%2371d7c1' stroke-width='2' opacity='.84'/%3E%3Cpath d='M9 32h46M13 21h38M13 43h38' stroke='%2371d7c1' stroke-width='2' opacity='.7'/%3E%3C/svg%3E");
+    }
+
+    [role="radiogroup"] [role="radio"]:nth-child(3) {
+        background-image: radial-gradient(circle at 0 50%, rgba(113, 215, 193, 0.2), transparent 62%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Cpath d='M15 48h34M22 48l4-18h12l4 18' stroke='%2371d7c1' stroke-width='2.5' opacity='.82'/%3E%3Cpath d='m22 30 10-9 10 9-10 5-10-5Z' stroke='%2371d7c1' stroke-width='2.5' opacity='.95'/%3E%3Cpath d='M45 14c5 3 8 7 9 12M49 8c7 4 11 10 12 17' stroke='%2371d7c1' stroke-width='2' stroke-linecap='round' opacity='.72'/%3E%3C/svg%3E");
+    }
+
+    [role="radiogroup"] [role="radio"]:nth-child(4) {
+        background-image: radial-gradient(circle at 0 50%, rgba(113, 215, 193, 0.2), transparent 62%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Cpath d='M13 51V14M13 51h39' stroke='%2371d7c1' stroke-width='2.5' opacity='.72'/%3E%3Cpath d='m19 42 9-11 8 6 12-17' stroke='%2371d7c1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' opacity='.96'/%3E%3Ccircle cx='19' cy='42' r='2.5' fill='%2371d7c1'/%3E%3Ccircle cx='28' cy='31' r='2.5' fill='%2371d7c1'/%3E%3Ccircle cx='36' cy='37' r='2.5' fill='%2371d7c1'/%3E%3Ccircle cx='48' cy='20' r='2.5' fill='%2371d7c1'/%3E%3C/svg%3E");
+    }
+
+    [role="radiogroup"] [role="radio"] > div {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+    }
+
+    [role="radiogroup"] [role="radio"] [data-testid="stIconEmoji"] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 25px;
+        height: 25px;
+        margin-right: 7px;
+        border: 1px solid rgba(113, 215, 193, 0.18);
+        border-radius: 50%;
+        background: rgba(113, 215, 193, 0.07);
+        filter: saturate(0.72);
+        transition: border-color 180ms ease, background 180ms ease, filter 180ms ease, transform 180ms ease;
+    }
+
+    [role="radiogroup"] [role="radio"] [data-testid="stMarkdownContainer"] p {
+        margin: 0 !important;
+        font-family: 'Space Grotesk', sans-serif !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.1px;
+    }
+
+    [role="radiogroup"] [role="radio"]:last-child {
+        border-right: 0 !important;
     }
 
     [role="radiogroup"] [role="radio"][aria-checked="true"] {
-        background: rgba(113, 215, 193, 0.14) !important;
-        color: var(--mint) !important;
+        background-color: rgba(113, 215, 193, 0.29) !important;
+        color: #f1fffb !important;
+        filter: brightness(1.16) saturate(1.16);
+        transform: scale(1.045);
+        z-index: 4;
+        box-shadow: inset 0 -4px var(--mint), inset 0 0 0 1px rgba(113, 215, 193, 0.42), inset 0 1px rgba(255, 255, 255, 0.12), 0 0 34px rgba(113, 215, 193, 0.28);
+    }
+
+    [role="radiogroup"] [role="radio"]::before {
+        position: absolute;
+        z-index: 3;
+        top: 7px;
+        left: 10px;
+        color: rgba(113, 215, 193, 0.4);
+        font: 500 8px 'DM Mono', monospace;
+        letter-spacing: 1px;
+        pointer-events: none;
+    }
+
+    [role="radiogroup"] [role="radio"]:nth-child(1)::before { content: "01"; }
+    [role="radiogroup"] [role="radio"]:nth-child(2)::before { content: "02"; }
+    [role="radiogroup"] [role="radio"]:nth-child(3)::before { content: "03"; }
+    [role="radiogroup"] [role="radio"]:nth-child(4)::before { content: "04"; }
+
+    [role="radiogroup"] [role="radio"][aria-checked="true"]::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 22%;
+        right: 22%;
+        height: 4px;
+        background: var(--mint);
+        box-shadow: 0 0 17px rgba(113, 215, 193, 1);
+        pointer-events: none;
     }
 
     [role="radiogroup"] [role="radio"]:hover {
-        background: rgba(113, 215, 193, 0.08) !important;
+        background-color: rgba(113, 215, 193, 0.11) !important;
+        color: #edf4ef !important;
     }
 
     [data-testid="stDataFrame"] {
         border: 1px solid var(--line);
         border-radius: 5px;
         overflow: hidden;
+    }
+
+    [data-testid="stPlotlyChart"] {
+        width: 1080px !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+        padding: 0;
+        overflow: hidden;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"].st-key-tracker-map) {
+        padding: 0 !important;
+        border-color: rgba(113, 215, 193, 0.28) !important;
+        box-shadow: inset 0 0 14px rgba(113, 215, 193, 0.035), 0 0 10px rgba(113, 215, 193, 0.06);
+        animation: map-frame-neon 6s ease-in-out infinite;
+    }
+
+    [data-testid="stElementContainer"].st-key-globe-3d {
+        overflow: hidden;
+        border: 1px solid rgba(113, 215, 193, 0.28);
+        border-radius: 8px;
+        background: radial-gradient(circle at 50% 46%, rgba(19, 70, 78, 0.16), transparent 58%);
+        box-shadow: inset 0 0 28px rgba(113, 215, 193, 0.045), 0 0 16px rgba(113, 215, 193, 0.07);
+        animation: globe-frame-neon 7s ease-in-out infinite;
+    }
+
+    [data-testid="stElementContainer"].st-key-globe-3d [data-testid="stPlotlyChart"] {
+        border-radius: 8px;
+    }
+
+    @keyframes globe-frame-neon {
+        0%, 100% { border-color: rgba(113, 215, 193, 0.22); box-shadow: inset 0 0 28px rgba(113, 215, 193, 0.035), 0 0 10px rgba(113, 215, 193, 0.05); }
+        50% { border-color: rgba(113, 215, 193, 0.52); box-shadow: inset 0 0 34px rgba(113, 215, 193, 0.065), 0 0 22px rgba(113, 215, 193, 0.13); }
+    }
+
+    @keyframes map-frame-neon {
+        0%, 100% {
+            border-color: rgba(113, 215, 193, 0.24) !important;
+        }
+        50% {
+            border-color: rgba(113, 215, 193, 0.58) !important;
+        }
     }
 
     [data-testid="stAlert"] {
@@ -416,11 +634,11 @@ st.markdown("""
         height: 7px;
         border-radius: 50%;
         background: var(--mint);
-        box-shadow: 0 0 8px var(--mint), 0 0 17px rgba(113, 215, 193, 0.65);
+        box-shadow: 0 0 8px var(--mint), 0 0 17px rgba(103, 212, 255, 0.7);
         animation: status-pulse 2.2s ease-in-out infinite;
     }
 
-    .masthead-separator { color: rgba(113, 215, 193, 0.45); }
+    .masthead-separator { color: rgba(103, 212, 255, 0.45); }
 
     .satlink-wordmark {
         display: flex;
@@ -434,17 +652,17 @@ st.markdown("""
     }
 
     .wordmark-satlink {
-        color: #f5fffc;
+        color: #f5fbff;
         font-size: 76px;
         font-weight: 700;
-        text-shadow: 0 0 10px rgba(113, 215, 193, 0.75), 0 0 34px rgba(113, 215, 193, 0.38);
+        text-shadow: 0 0 10px rgba(103, 212, 255, 0.75), 0 0 34px rgba(103, 212, 255, 0.38);
     }
 
     .wordmark-studio {
-        color: rgba(113, 215, 193, 0.84);
+        color: rgba(103, 212, 255, 0.88);
         font-size: 43px;
         font-weight: 600;
-        text-shadow: 0 0 8px rgba(113, 215, 193, 0.38);
+        text-shadow: 0 0 8px rgba(103, 212, 255, 0.38);
     }
 
     .masthead-description {
@@ -494,7 +712,11 @@ st.markdown("""
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .satlink-masthead::after, .masthead-status, .satlink-wordmark { animation: none; }
+        .satlink-masthead::after, .masthead-status, .satlink-wordmark,
+        [data-testid="stMetric"]::before, [data-testid="stMetric"]::after,
+        [data-testid="stMetricLabel"]::before,
+        [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"].st-key-tracker-map),
+        [data-testid="stElementContainer"].st-key-globe-3d { animation: none; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -560,6 +782,50 @@ group = st.sidebar.selectbox("Grupo CelesTrak", ["stations", "starlink", "geo", 
 def load_satellites(group_name):
     return fetch_tle_by_group(group_name)
 
+
+@st.cache_data(ttl=60, show_spinner=False)
+def predict_passes_cached(satellite_name, line1, line2, gs_lat, gs_lon, gs_alt, min_el):
+    predictor = PassPredictor(satellite_name, line1, line2)
+    return predictor.predict_passes(
+        gs_lat,
+        gs_lon,
+        alt_m=gs_alt,
+        days=3,
+        min_elevation_deg=min_el,
+    )
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_ground_track_cached(satellite_name, line1, line2, minutes_past, minutes_future):
+    propagator = OrbitPropagator(satellite_name, line1, line2)
+    return propagator.get_ground_track(
+        minutes_past=minutes_past,
+        minutes_future=minutes_future,
+    )
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def build_globe_land_particles(radius_km):
+    """Convierte la cartografía local en una textura de partículas 3D."""
+    surface_path = Path(__file__).with_name("assets") / "world_50m_surface.npz"
+    surface = np.load(surface_path)
+    latitudes = surface["latitudes"]
+    longitudes = surface["longitudes"]
+    mask = surface["mask"] > 0.5
+    lat_grid, lon_grid = np.meshgrid(latitudes, longitudes, indexing="ij")
+
+    land_latitudes = lat_grid[mask].astype(float)
+    land_longitudes = lon_grid[mask].astype(float)
+
+    particle_x, particle_y, particle_z = latlon_to_cartesian(
+        land_latitudes,
+        land_longitudes,
+        0,
+        r_earth=radius_km * 1.012,
+    )
+
+    return particle_x, particle_y, particle_z
+
 try:
     with st.spinner("🛰️ Descargando telemetría TLE de CelesTrak..."):
         sat_list = load_satellites(group)
@@ -613,8 +879,15 @@ try:
 
     # PRE-CALCULAR PREDICCIÓN DE PASES
     now_utc = datetime.now(timezone.utc)
-    predictor = PassPredictor(tle_data["name"], tle_data["line1"], tle_data["line2"])
-    passes = predictor.predict_passes(gs_lat, gs_lon, alt_m=gs_alt, days=3, min_elevation_deg=min_el)
+    passes = predict_passes_cached(
+        tle_data["name"],
+        tle_data["line1"],
+        tle_data["line2"],
+        float(gs_lat),
+        float(gs_lon),
+        float(gs_alt),
+        int(min_el),
+    )
 
     countdown_str = "SIN PASES"
     pass_label = "PRÓXIMO PASE"
@@ -774,10 +1047,10 @@ try:
                 background: linear-gradient(90deg, transparent, var(--tile-accent), transparent);
                 box-shadow: 0 0 9px var(--tile-accent);
             }}
-            .hud-cell:nth-child(1) {{ --tile-accent: #71d7c1; }}
-            .hud-cell:nth-child(2) {{ --tile-accent: #f5bd67; }}
-            .hud-cell:nth-child(3) {{ --tile-accent: #91b8f2; }}
-            .hud-cell:nth-child(4) {{ --tile-accent: #ed9a8d; }}
+            .hud-cell:nth-child(1) {{ --tile-accent: #7ad6ff; }}
+            .hud-cell:nth-child(2) {{ --tile-accent: #a1c9ff; }}
+            .hud-cell:nth-child(3) {{ --tile-accent: #7ee3ff; }}
+            .hud-cell:nth-child(4) {{ --tile-accent: #c5d9ff; }}
             .hud-label {{ display: flex; align-items: center; justify-content: center; gap: 5px; color: #d0ded9; font-size: 13px; font-weight: 700; line-height: 1.15; text-transform: uppercase; }}
             .hud-value {{ color: var(--tile-accent); font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; text-shadow: 0 0 10px color-mix(in srgb, var(--tile-accent) 24%, transparent); }}
             @media (max-width: 700px) {{
@@ -815,14 +1088,22 @@ try:
     # 6. SELECCIÓN DE PESTAÑAS
     selected_tab = st.segmented_control(
         "Pestañas",
-        ["🌍 Tracker 2D", "🌐 Globo 3D", "📡 Predicción de Pases", "📊 Link Budget & Doppler"],
-        default="🌍 Tracker 2D",
+        ["Tracker 2D", "Globo 3D", "Predicción de Pases", "Link Budget & Doppler"],
+        default="Globo 3D",
         label_visibility="collapsed"
     )
 
     propagator = OrbitPropagator(tle_data["name"], tle_data["line1"], tle_data["line2"])
     state = propagator.get_current_state()
-    ground_track = propagator.get_ground_track(minutes_past=50, minutes_future=50)
+    ground_track = None
+    if selected_tab in {"Tracker 2D", "Globo 3D"}:
+        ground_track = get_ground_track_cached(
+            tle_data["name"],
+            tle_data["line1"],
+            tle_data["line2"],
+            50,
+            50,
+        )
 
     plotly_layout_dark = dict(
         template="plotly_dark",
@@ -831,32 +1112,174 @@ try:
         margin=dict(l=10, r=10, t=20, b=10)
     )
 
-    # TAB 1: TRACKER 2D
-    if selected_tab == "🌍 Tracker 2D":
-        st.markdown('##### TELEMETRÍA EN TIEMPO REAL (GROUND TRACK 2D)')
-        
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Latitud Sub-satélite", f"{state['latitude']:.4f}°")
-        col2.metric("Longitud Sub-satélite", f"{state['longitude']:.4f}°")
-        col3.metric("Altitud Orbital", f"{state['altitude_km']:.2f} km")
-        col4.metric("Velocidad Orbital", f"{state['speed_km_s']:.2f} km/s")
+    tracker_header_slot = st.empty()
+    tracker_metrics_slot = st.empty()
+    if selected_tab == "Tracker 2D":
+        tracker_header_slot = st.empty()
+        tracker_metrics_slot = st.empty()
+        map_frame = st.container(height=542, border=True)
 
-        fig_map = go.Figure()
-        fig_map.add_trace(go.Scattergeo(
+        static_map = go.Figure()
+        static_map.add_trace(go.Scattergeo(
             lon=ground_track["longitude"], lat=ground_track["latitude"],
-            mode="lines", line=dict(width=2.5, color="#00f3ff"), name="Ground Track"
+            mode="lines", line=dict(width=2.5, color="#6ad8ff"), name="Ground Track"
         ))
-        fig_map.add_trace(go.Scattergeo(
+        static_map.add_trace(go.Scattergeo(
             lon=[state["longitude"]], lat=[state["latitude"]],
             mode="markers+text", marker=dict(size=12, color="#ff3366", symbol="diamond"),
             text=[f" <b>{state['name']}</b>"], textposition="top center", name="Satélite"
+        ))
+        static_map.add_trace(go.Scattergeo(
+            lon=[gs_lon], lat=[gs_lat],
+            mode="markers+text", marker=dict(size=12, color="#ffcc00", symbol="star"),
+            text=[" <b>Estación Terrestre</b>"], textposition="bottom center", name="Ground Station"
+        ))
+        static_map.update_layout(
+            **{**plotly_layout_dark, "margin": dict(l=0, r=0, t=0, b=0, pad=0)},
+            legend=dict(
+                orientation="h",
+                x=0.015,
+                y=0.985,
+                xanchor="left",
+                yanchor="top",
+                bgcolor="rgba(8, 19, 22, 0.78)",
+                bordercolor="rgba(113, 215, 193, 0.32)",
+                borderwidth=1,
+                font=dict(color="#edf4ef", size=11),
+            ),
+            geo=dict(
+                showland=True, landcolor="rgb(13, 32, 49)",
+                showocean=True, oceancolor="rgb(4, 12, 20)",
+                fitbounds=False,
+                projection=dict(type="equirectangular", scale=1, minscale=1),
+                bgcolor="rgba(0,0,0,0)",
+                coastlinecolor="rgba(102, 196, 255, 0.42)",
+                uirevision=f"tracker-2d-{state['name']}"
+            ),
+            width=1080,
+            height=540
+        )
+        map_frame.plotly_chart(
+            static_map,
+            use_container_width=False,
+            config={
+                "scrollZoom": True,
+                "responsive": False,
+                "displaylogo": False,
+            },
+            key="tracker-map",
+        )
+
+        @st.fragment(run_every="10s")
+        def refresh_tracker_data():
+            live_state = propagator.get_current_state()
+            tracker_header_slot.markdown('##### TELEMETRÍA EN TIEMPO REAL (GROUND TRACK 2D)')
+            with tracker_metrics_slot.container():
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Latitud Sub-satélite", f"{live_state['latitude']:.4f}°")
+                col2.metric("Longitud Sub-satélite", f"{live_state['longitude']:.4f}°")
+                col3.metric("Altitud Orbital", f"{live_state['altitude_km']:.2f} km")
+                col4.metric("Velocidad Orbital", f"{live_state['speed_km_s']:.2f} km/s")
+
+            st.components.v1.html(
+                f"""
+                <script>
+                    (() => {{
+                        const plot = window.parent.document.querySelector(
+                            '[data-testid="stPlotlyChart"] .js-plotly-plot'
+                        );
+                        if (!plot || !window.parent.Plotly) return;
+                        window.parent.Plotly.restyle(plot, {{
+                            lon: [[{live_state['longitude']}]],
+                            lat: [[{live_state['latitude']}]],
+                            text: [[" <b>{live_state['name']}</b>"]]
+                        }}, [1]);
+
+                        if (plot.dataset.satlinkZoomGuard !== "true") {{
+                            const geo = plot._fullLayout && plot._fullLayout.geo;
+                            const initialLonRange = geo?.lonaxis?.range?.slice();
+                            const initialLatRange = geo?.lataxis?.range?.slice();
+                            if (initialLonRange && initialLatRange) {{
+                                const clampRange = (range, initialRange) => {{
+                                    const initialSpan = initialRange[1] - initialRange[0];
+                                    const currentSpan = range[1] - range[0];
+                                    if (currentSpan <= initialSpan) return range;
+
+                                    const center = (range[0] + range[1]) / 2;
+                                    return [
+                                        center - initialSpan / 2,
+                                        center + initialSpan / 2,
+                                    ];
+                                }};
+
+                                plot.on("plotly_relayout", () => {{
+                                    const currentGeo = plot._fullLayout && plot._fullLayout.geo;
+                                    const corrections = {{}};
+                                    const projectionScale = currentGeo?.projection?.scale;
+                                    const lonRange = currentGeo?.lonaxis?.range;
+                                    const latRange = currentGeo?.lataxis?.range;
+
+                                    if (typeof projectionScale === "number" && projectionScale < 1) {{
+                                        corrections["geo.projection.scale"] = 1;
+                                    }}
+
+                                    if (lonRange) {{
+                                        const clampedLonRange = clampRange(lonRange, initialLonRange);
+                                        if (clampedLonRange !== lonRange) {{
+                                            corrections["geo.lonaxis.range"] = clampedLonRange;
+                                        }}
+                                    }}
+                                    if (latRange) {{
+                                        const clampedLatRange = clampRange(latRange, initialLatRange);
+                                        if (clampedLatRange !== latRange) {{
+                                            corrections["geo.lataxis.range"] = clampedLatRange;
+                                        }}
+                                    }}
+
+                                    if (Object.keys(corrections).length) {{
+                                        window.parent.Plotly.relayout(plot, corrections);
+                                    }}
+                                }});
+                                plot.dataset.satlinkZoomGuard = "true";
+                            }}
+                        }}
+                    }})();
+                </script>
+                """,
+                height=1,
+            )
+
+        refresh_tracker_data()
+        st.stop()
+
+    @st.fragment(run_every="10s")
+    def render_live_tracker():
+        live_state = propagator.get_current_state()
+        live_ground_track = propagator.get_ground_track(minutes_past=50, minutes_future=50)
+
+        tracker_header_slot.markdown('##### TELEMETRÍA EN TIEMPO REAL (GROUND TRACK 2D)')
+        with tracker_metrics_slot.container():
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Latitud Sub-satélite", f"{live_state['latitude']:.4f}°")
+            col2.metric("Longitud Sub-satélite", f"{live_state['longitude']:.4f}°")
+            col3.metric("Altitud Orbital", f"{live_state['altitude_km']:.2f} km")
+            col4.metric("Velocidad Orbital", f"{live_state['speed_km_s']:.2f} km/s")
+
+        fig_map = go.Figure()
+        fig_map.add_trace(go.Scattergeo(
+            lon=live_ground_track["longitude"], lat=live_ground_track["latitude"],
+            mode="lines", line=dict(width=2.5, color="#00f3ff"), name="Ground Track"
+        ))
+        fig_map.add_trace(go.Scattergeo(
+            lon=[live_state["longitude"]], lat=[live_state["latitude"]],
+            mode="markers+text", marker=dict(size=12, color="#ff3366", symbol="diamond"),
+            text=[f" <b>{live_state['name']}</b>"], textposition="top center", name="Satélite"
         ))
         fig_map.add_trace(go.Scattergeo(
             lon=[gs_lon], lat=[gs_lat],
             mode="markers+text", marker=dict(size=12, color="#ffcc00", symbol="star"),
             text=[" <b>Estación Terrestre</b>"], textposition="bottom center", name="Ground Station"
         ))
-        
         fig_map.update_layout(
             **plotly_layout_dark,
             geo=dict(
@@ -864,40 +1287,400 @@ try:
                 showocean=True, oceancolor="rgb(6, 10, 20)",
                 projection_type="equirectangular",
                 bgcolor="rgba(0,0,0,0)",
-                coastlinecolor="rgba(0, 243, 255, 0.3)"
+                coastlinecolor="rgba(0, 243, 255, 0.3)",
+                uirevision=f"tracker-2d-{live_state['name']}"
             ),
-            height=500
+            width=1080,
+            height=540,
+            uirevision=f"tracker-2d-{live_state['name']}"
         )
-        st.plotly_chart(fig_map, use_container_width=True)
+        map_frame.plotly_chart(
+            fig_map,
+            use_container_width=False,
+            config={
+                "scrollZoom": True,
+                "responsive": False,
+                "displaylogo": False,
+            },
+            key="tracker-map",
+        )
+
+        st.components.v1.html(
+            """
+            <script>
+                (() => {
+                    const storageKey = "satlink-tracker-map-view";
+
+                    function installMapViewPersistence() {
+                        let plot;
+                        try {
+                            plot = window.parent.document.querySelector(
+                                '[data-testid="stPlotlyChart"] .js-plotly-plot'
+                            );
+                        } catch {
+                            return false;
+                        }
+                        if (!plot || !window.parent.Plotly) return false;
+                        if (plot.dataset.satlinkViewPersistence === "true") return true;
+
+                        plot.style.opacity = "0";
+                        plot.style.transition = "none";
+                        const revealMap = () => {
+                            plot.style.opacity = "1";
+                        };
+
+                        const savedView = window.parent.sessionStorage.getItem(storageKey);
+                        if (savedView) {
+                            try {
+                                const restoreOperation = window.parent.Plotly.relayout(plot, JSON.parse(savedView));
+                                if (restoreOperation && restoreOperation.then) {
+                                    restoreOperation.then(revealMap, revealMap);
+                                } else {
+                                    revealMap();
+                                }
+                            } catch {
+                                window.parent.sessionStorage.removeItem(storageKey);
+                                revealMap();
+                            }
+                        } else {
+                            revealMap();
+                        }
+
+                        plot.on("plotly_relayout", (eventData) => {
+                            const viewData = {};
+                            Object.entries(eventData).forEach(([key, value]) => {
+                                if (key.startsWith("geo.")) viewData[key] = value;
+                            });
+                            if (Object.keys(viewData).length > 0) {
+                                window.parent.sessionStorage.setItem(storageKey, JSON.stringify(viewData));
+                            }
+                        });
+                        plot.dataset.satlinkViewPersistence = "true";
+                        return true;
+                    }
+
+                    const parentDocument = window.parent.document;
+                    new MutationObserver(installMapViewPersistence).observe(parentDocument.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                    installMapViewPersistence();
+                    window.setTimeout(installMapViewPersistence, 200);
+                    window.setTimeout(installMapViewPersistence, 800);
+                })();
+            </script>
+            """,
+            height=1,
+        )
+
+    if selected_tab == "Tracker 2D":
+        render_live_tracker()
+        st.stop()
 
     # TAB 2: GLOBO 3D
-    elif selected_tab == "🌐 Globo 3D":
+    elif selected_tab == "Globo 3D":
         st.subheader(f"Órbita Tridimensional ECEF — {state['name']}")
 
-        phi = np.linspace(-np.pi/2, np.pi/2, 30)
-        theta = np.linspace(-np.pi, np.pi, 30)
-        phi, theta = np.meshgrid(phi, theta)
-        x_sphere = EARTH_RADIUS_KM * np.cos(phi) * np.cos(theta)
-        y_sphere = EARTH_RADIUS_KM * np.cos(phi) * np.sin(theta)
-        z_sphere = EARTH_RADIUS_KM * np.sin(phi)
-
-        orbit_x, orbit_y, orbit_z = latlon_to_cartesian(
-            ground_track["latitude"].values, ground_track["longitude"].values, ground_track["altitude_km"].values
+        # Keep every land point: the canvas applies its camera rotation and
+        # removes the far hemisphere for each animation frame.
+        particle_x, particle_y, particle_z = build_globe_land_particles(
+            float(EARTH_RADIUS_KM)
         )
-        sat_x, sat_y, sat_z = latlon_to_cartesian(state["latitude"], state["longitude"], state["altitude_km"])
-        gs_x, gs_y, gs_z = latlon_to_cartesian(gs_lat, gs_lon, gs_alt / 1000.0)
+        globe_points = np.column_stack([particle_x, particle_y, particle_z])
+        globe_payload = {
+            "land": np.asarray(globe_points).tolist(),
+        }
 
-        fig_3d = go.Figure()
-        fig_3d.add_trace(go.Surface(x=x_sphere, y=y_sphere, z=z_sphere, colorscale=[[0, "#080f26"], [1, "#0055ff"]], opacity=0.5, showscale=False))
-        fig_3d.add_trace(go.Scatter3d(x=orbit_x, y=orbit_y, z=orbit_z, mode="lines", line=dict(color="#00f3ff", width=4), name="Órbita"))
-        fig_3d.add_trace(go.Scatter3d(x=[sat_x], y=[sat_y], z=[sat_z], mode="markers", marker=dict(size=8, color="#ff3366"), name="Satélite"))
-        fig_3d.add_trace(go.Scatter3d(x=[gs_x], y=[gs_y], z=[gs_z], mode="markers", marker=dict(size=7, color="#ffcc00"), name="GS"))
+        st.components.v1.html(
+            f"""
+            <div id="satlink-globe-stage" style="width:100%; height:620px; border:1px solid rgba(62, 171, 255, 0.24); border-radius:8px; background:#020b19; overflow:hidden; position:relative; box-shadow:inset 0 0 40px rgba(0, 101, 202, 0.08), 0 0 30px rgba(0, 106, 255, 0.08);">
+                <canvas id="satlink-globe-canvas" style="display:block; width:100%; height:100%; touch-action:none; cursor:grab;"></canvas>
+            </div>
+            <script>
+                const payload = {json.dumps(globe_payload)};
+                const stage = document.getElementById('satlink-globe-stage');
+                const canvas = document.getElementById('satlink-globe-canvas');
+                const ctx = canvas.getContext('2d', {{alpha: false}});
+                let w = 0;
+                let h = 0;
+                let cx = 0;
+                let cy = 0;
+                let radius = 0;
+                let cameraLongitude = -0.35;
+                let cameraTilt = -1.15;
+                let dragging = false;
+                let lastPointerX = 0;
+                let lastPointerY = 0;
+                let previousFrame = 0;
+                const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                const stars = Array.from({{length: 150}}, (_, i) => {{
+                    const a = Math.sin((i + 1) * 127.1) * 43758.5453;
+                    const b = Math.sin((i + 1) * 269.5) * 22578.1459;
+                    return {{
+                        x: ((a - Math.floor(a)) * 0.96 + 0.02),
+                        y: ((b - Math.floor(b)) * 0.96 + 0.02),
+                        size: 0.5 + (i % 4) * 0.35,
+                        alpha: 0.12 + (i % 5) * 0.045,
+                    }};
+                }});
 
-        fig_3d.update_layout(**plotly_layout_dark, height=600)
-        st.plotly_chart(fig_3d, use_container_width=True)
+                function resizeCanvas() {{
+                    const bounds = stage.getBoundingClientRect();
+                    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                    w = Math.max(1, bounds.width);
+                    h = Math.max(1, bounds.height);
+                    canvas.width = Math.round(w * dpr);
+                    canvas.height = Math.round(h * dpr);
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    cx = w * 0.5;
+                    cy = h * 0.51;
+                    radius = Math.min(w * 0.38, h * 0.44);
+                }}
+
+                function rotatePoint(x, y, z, cosLongitude, sinLongitude, cosTilt, sinTilt) {{
+                    const rotatedX = x * cosLongitude - y * sinLongitude;
+                    const rotatedY = x * sinLongitude + y * cosLongitude;
+                    return {{
+                        x: rotatedX,
+                        y: rotatedY * cosTilt - z * sinTilt,
+                        depth: rotatedY * sinTilt + z * cosTilt,
+                    }};
+                }}
+
+                function project(x, y, depth) {{
+                    return {{
+                        x: cx + x * radius,
+                        y: cy - y * radius,
+                        depth: depth,
+                    }};
+                }}
+
+                function drawBackground() {{
+                    ctx.fillStyle = '#020b19';
+                    ctx.fillRect(0, 0, w, h);
+                    const vignette = ctx.createRadialGradient(cx, cy, radius * 0.2, cx, cy, Math.max(w, h) * 0.8);
+                    vignette.addColorStop(0, 'rgba(7, 37, 73, 0.18)');
+                    vignette.addColorStop(1, 'rgba(0, 3, 12, 0.2)');
+                    ctx.fillStyle = vignette;
+                    ctx.fillRect(0, 0, w, h);
+
+                    for (const star of stars) {{
+                        ctx.fillStyle = 'rgba(126, 196, 255, ' + star.alpha + ')';
+                        ctx.fillRect(star.x * w, star.y * h, star.size, star.size);
+                    }}
+                    ctx.strokeStyle = 'rgba(63, 133, 205, 0.045)';
+                    ctx.lineWidth = 1;
+                    for (let x = 0; x < w; x += 36) {{
+                        ctx.beginPath();
+                        ctx.moveTo(x, 0);
+                        ctx.lineTo(x, h);
+                        ctx.stroke();
+                    }}
+                    for (let y = 0; y < h; y += 36) {{
+                        ctx.beginPath();
+                        ctx.moveTo(0, y);
+                        ctx.lineTo(w, y);
+                        ctx.stroke();
+                    }}
+                }}
+
+                function drawSphere() {{
+                    const halo = ctx.createRadialGradient(cx, cy, radius * 0.82, cx, cy, radius * 1.32);
+                    halo.addColorStop(0, 'rgba(0, 163, 255, 0.34)');
+                    halo.addColorStop(0.42, 'rgba(0, 111, 255, 0.2)');
+                    halo.addColorStop(1, 'rgba(0, 54, 200, 0)');
+                    ctx.fillStyle = halo;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius * 1.32, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    const ocean = ctx.createRadialGradient(
+                        cx - radius * 0.34, cy - radius * 0.38, radius * 0.04,
+                        cx + radius * 0.12, cy + radius * 0.16, radius * 1.16
+                    );
+                    ocean.addColorStop(0, '#123b66');
+                    ocean.addColorStop(0.38, '#08274b');
+                    ocean.addColorStop(0.78, '#04152f');
+                    ocean.addColorStop(1, '#010817');
+                    ctx.fillStyle = ocean;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }}
+
+                function drawGraticule(cosLongitude, sinLongitude, cosTilt, sinTilt) {{
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius * 0.998, 0, Math.PI * 2);
+                    ctx.clip();
+                    ctx.lineWidth = 0.7;
+                    ctx.strokeStyle = 'rgba(74, 190, 255, 0.22)';
+
+                    function traceLine(points) {{
+                        let drawing = false;
+                        ctx.beginPath();
+                        for (const point of points) {{
+                            const p = rotatePoint(point[0], point[1], point[2], cosLongitude, sinLongitude, cosTilt, sinTilt);
+                            if (p.depth <= 0) {{
+                                drawing = false;
+                                continue;
+                            }}
+                            const q = project(p.x, p.y, p.depth);
+                            if (!drawing) {{
+                                ctx.moveTo(q.x, q.y);
+                                drawing = true;
+                            }} else {{
+                                ctx.lineTo(q.x, q.y);
+                            }}
+                        }}
+                        ctx.stroke();
+                    }}
+
+                    for (let latitude = -60; latitude <= 60; latitude += 30) {{
+                        const lat = latitude * Math.PI / 180;
+                        const points = [];
+                        for (let longitude = -180; longitude <= 180; longitude += 3) {{
+                            const lon = longitude * Math.PI / 180;
+                            points.push([Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]);
+                        }}
+                        traceLine(points);
+                    }}
+                    for (let longitude = -180; longitude < 180; longitude += 30) {{
+                        const lon = longitude * Math.PI / 180;
+                        const points = [];
+                        for (let latitude = -88; latitude <= 88; latitude += 3) {{
+                            const lat = latitude * Math.PI / 180;
+                            points.push([Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]);
+                        }}
+                        traceLine(points);
+                    }}
+                    ctx.restore();
+                }}
+
+                function drawLand(cosLongitude, sinLongitude, cosTilt, sinTilt) {{
+                    const depthBins = [[], [], []];
+                    for (const point of payload.land) {{
+                        const magnitude = Math.hypot(point[0], point[1], point[2]) || 1;
+                        const p = rotatePoint(
+                            point[0] / magnitude, point[1] / magnitude, point[2] / magnitude,
+                            cosLongitude, sinLongitude, cosTilt, sinTilt
+                        );
+                        if (p.depth <= 0) continue;
+                        depthBins[Math.min(2, Math.floor(p.depth * 3))].push(p);
+                    }}
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius * 0.999, 0, Math.PI * 2);
+                    ctx.clip();
+                    ctx.globalCompositeOperation = 'screen';
+                    const colors = [
+                        'rgba(23, 122, 255, 0.68)',
+                        'rgba(38, 166, 255, 0.86)',
+                        'rgba(126, 232, 255, 1)',
+                    ];
+                    for (let bin = 0; bin < depthBins.length; bin += 1) {{
+                        ctx.beginPath();
+                        for (const p of depthBins[bin]) {{
+                            const q = project(p.x, p.y, p.depth);
+                            const size = 0.72 + p.depth * 1.12;
+                            const haloSize = size * 2.1;
+                            ctx.moveTo(q.x + haloSize, q.y);
+                            ctx.arc(q.x, q.y, haloSize, 0, Math.PI * 2);
+                        }}
+                        ctx.fillStyle = 'rgba(0, 153, 255, 0.18)';
+                        ctx.shadowColor = 'rgba(0, 170, 255, 0.82)';
+                        ctx.shadowBlur = 7;
+                        ctx.fill();
+
+                        ctx.shadowBlur = 0;
+                        ctx.beginPath();
+                        for (const p of depthBins[bin]) {{
+                            const q = project(p.x, p.y, p.depth);
+                            const size = 0.72 + p.depth * 1.12;
+                            ctx.moveTo(q.x + size, q.y);
+                            ctx.arc(q.x, q.y, size, 0, Math.PI * 2);
+                        }}
+                        ctx.fillStyle = colors[bin];
+                        ctx.fill();
+                    }}
+                    ctx.shadowBlur = 0;
+                    ctx.restore();
+                }}
+
+                function render(timestamp) {{
+                    if (previousFrame && !dragging && !reducedMotion && timestamp - previousFrame > 32) {{
+                        cameraLongitude += 0.000045 * (timestamp - previousFrame);
+                    }}
+                    previousFrame = timestamp;
+                    const cosLongitude = Math.cos(cameraLongitude);
+                    const sinLongitude = Math.sin(cameraLongitude);
+                    const cosTilt = Math.cos(cameraTilt);
+                    const sinTilt = Math.sin(cameraTilt);
+
+                    drawBackground();
+                    drawSphere();
+                    drawGraticule(cosLongitude, sinLongitude, cosTilt, sinTilt);
+                    drawLand(cosLongitude, sinLongitude, cosTilt, sinTilt);
+
+                    const atmosphere = ctx.createRadialGradient(
+                        cx - radius * 0.35, cy - radius * 0.4, radius * 0.68,
+                        cx, cy, radius * 1.03
+                    );
+                    atmosphere.addColorStop(0, 'rgba(84, 194, 255, 0)');
+                    atmosphere.addColorStop(0.84, 'rgba(26, 151, 255, 0.08)');
+                    atmosphere.addColorStop(0.97, 'rgba(87, 220, 255, 0.68)');
+                    atmosphere.addColorStop(1, 'rgba(22, 124, 255, 0.16)');
+                    ctx.fillStyle = atmosphere;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(137, 235, 255, 0.94)';
+                    ctx.lineWidth = 1.5;
+                    ctx.shadowColor = 'rgba(0, 170, 255, 1)';
+                    ctx.shadowBlur = 19;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+
+                    if (!reducedMotion) window.requestAnimationFrame(render);
+                }}
+
+                canvas.addEventListener('pointerdown', (event) => {{
+                    dragging = true;
+                    lastPointerX = event.clientX;
+                    lastPointerY = event.clientY;
+                    canvas.setPointerCapture(event.pointerId);
+                    canvas.style.cursor = 'grabbing';
+                }});
+                canvas.addEventListener('pointermove', (event) => {{
+                    if (!dragging) return;
+                    cameraLongitude += (event.clientX - lastPointerX) * 0.008;
+                    cameraTilt = Math.max(-1.35, Math.min(1.35, cameraTilt + (event.clientY - lastPointerY) * 0.006));
+                    lastPointerX = event.clientX;
+                    lastPointerY = event.clientY;
+                    if (reducedMotion) render(performance.now());
+                }});
+                canvas.addEventListener('pointerup', () => {{
+                    dragging = false;
+                    canvas.style.cursor = 'grab';
+                }});
+                canvas.addEventListener('pointercancel', () => {{
+                    dragging = false;
+                    canvas.style.cursor = 'grab';
+                }});
+                new ResizeObserver(() => {{
+                    resizeCanvas();
+                    if (reducedMotion) render(performance.now());
+                }}).observe(stage);
+                resizeCanvas();
+                window.requestAnimationFrame(render);
+            </script>
+            """,
+            height=620,
+        )
 
     # TAB 3: PASES
-    elif selected_tab == "📡 Predicción de Pases":
+    elif selected_tab == "Predicción de Pases":
         st.subheader("Próximos Pases")
         if passes:
             table_data = [{
@@ -909,7 +1692,7 @@ try:
             st.dataframe(pd.DataFrame(table_data), use_container_width=True)
 
     # TAB 4: RF
-    elif selected_tab == "📊 Link Budget & Doppler":
+    elif selected_tab == "Link Budget & Doppler":
         st.subheader("Simulación RF")
         st.info("Ajusta los parámetros para simular el enlace.")
 
