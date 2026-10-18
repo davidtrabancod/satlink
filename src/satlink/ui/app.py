@@ -1100,6 +1100,10 @@ def build_globe_land_particles(radius_km):
 try:
     with st.spinner("🛰️ Descargando telemetría TLE de CelesTrak..."):
         sat_list = load_satellites(group)
+    if not sat_list:
+        st.error(f"No hay datos de satelites disponibles para el grupo '{group}'.")
+        st.info("CelesTrak puede limitar temporalmente las consultas. Prueba otro grupo o vuelve a intentarlo despues.")
+        st.stop()
     sat_names = [s["name"] for s in sat_list]
     default_idx = sat_names.index("ISS (ZARYA)") if "ISS (ZARYA)" in sat_names else 0
     selected_name = st.sidebar.selectbox("Satélite", sat_names, index=default_idx)

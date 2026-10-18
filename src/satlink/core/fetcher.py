@@ -9,17 +9,11 @@ from pathlib import Path
 import requests
 
 
-FALLBACK_TLE = [
-    {
-        "name": "ISS (ZARYA)",
-        "line1": "1 25544U 98067A   24080.52180556  .00016717  00000+0  30143-3 0  9991",
-        "line2": "2 25544  51.6416 288.2562 0004724  91.6843 325.2638 15.49528348444985",
-    }
-]
-
-_REFRESH_AFTER_SECONDS = 60 * 60
+_REFRESH_AFTER_SECONDS = 2 * 60 * 60
+_FAILURE_RETRY_SECONDS = 2 * 60 * 60
 _refresh_locks = {}
 _refresh_locks_guard = threading.Lock()
+_failed_fetch_until = {}
 
 
 def _cache_path(group_name: str) -> Path:
@@ -86,6 +80,8 @@ def _download_tles(group_name: str):
 
 def _refresh_in_background(group_name: str):
     with _refresh_locks_guard:
+        if time.time() < _failed_fetch_until.get(group_name, 0):
+            return
         lock = _refresh_locks.setdefault(group_name, threading.Lock())
     if not lock.acquire(blocking=False):
         return
@@ -95,6 +91,11 @@ def _refresh_in_background(group_name: str):
             satellites = _download_tles(group_name)
             if satellites:
                 _write_cache(group_name, satellites)
+                with _refresh_locks_guard:
+                    _failed_fetch_until.pop(group_name, None)
+            else:
+                with _refresh_locks_guard:
+                    _failed_fetch_until[group_name] = time.time() + _FAILURE_RETRY_SECONDS
         finally:
             lock.release()
 
@@ -105,15 +106,25 @@ def _refresh_in_background(group_name: str):
 
 
 def fetch_tle_by_group(group_name: str = "stations"):
-    """Return recent cached TLEs immediately, refreshing stale data in background."""
+    """Return cached TLEs and refresh them no more than CelesTrak requires."""
     cached_satellites, fetched_at = _read_cache(group_name)
+    now = time.time()
     if cached_satellites:
-        if time.time() - fetched_at > _REFRESH_AFTER_SECONDS:
+        if now - fetched_at > _REFRESH_AFTER_SECONDS:
             _refresh_in_background(group_name)
         return cached_satellites
+
+    with _refresh_locks_guard:
+        if now < _failed_fetch_until.get(group_name, 0):
+            return []
 
     satellites = _download_tles(group_name)
     if satellites:
         _write_cache(group_name, satellites)
+        with _refresh_locks_guard:
+            _failed_fetch_until.pop(group_name, None)
         return satellites
-    return FALLBACK_TLE
+
+    with _refresh_locks_guard:
+        _failed_fetch_until[group_name] = time.time() + _FAILURE_RETRY_SECONDS
+    return []
