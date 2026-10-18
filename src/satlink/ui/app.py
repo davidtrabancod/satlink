@@ -85,11 +85,45 @@ st.markdown("""
         opacity: 1 !important;
     }
 
-    [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] button {
+    [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="stSidebarCollapsedControl"] button {
+        display: flex !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
         border: 1px solid var(--line) !important;
-        border-radius: 5px !important;
-        background: rgba(113, 215, 193, 0.07) !important;
-        color: var(--mint) !important;
+        border-radius: 7px !important;
+        background: rgba(7, 28, 45, 0.96) !important;
+        color: #71d7c1 !important;
+        box-shadow: 0 0 14px rgba(103, 212, 255, 0.12) !important;
+        opacity: 1 !important;
+        transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease !important;
+    }
+
+    [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] button:hover,
+    [data-testid="stSidebarCollapsedControl"] button:hover {
+        border-color: #71d7c1 !important;
+        background: rgba(18, 61, 75, 0.98) !important;
+        box-shadow: 0 0 18px rgba(103, 212, 255, 0.28) !important;
+    }
+
+    [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] button svg,
+    [data-testid="stSidebarCollapsedControl"] button svg {
+        display: block !important;
+        width: 20px !important;
+        height: 20px !important;
+        color: #71d7c1 !important;
+        opacity: 1 !important;
+    }
+
+    [data-testid="stSidebarCollapsedControl"] {
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 1001 !important;
     }
 
     .sidebar-identity {
