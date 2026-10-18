@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 from skyfield.api import EarthSatellite, load, wgs84
 
@@ -31,12 +31,18 @@ def _catalog(group: str) -> list[dict]:
         raise HTTPException(status_code=400, detail="Grupo CelesTrak no válido")
     now = datetime.now(timezone.utc).timestamp()
     cached = _catalog_cache.get(group)
-    if cached and now - cached[0] < 2 * 60 * 60:
-        return cached[1]
+    if cached:
+        if not cached[1][0].get("_tle_stale") and now - cached[0] < 2 * 60 * 60:
+            return cached[1]
+        _catalog_cache.pop(group, None)
     satellites = fetch_tle_by_group(group)
     if not satellites:
         raise HTTPException(status_code=503, detail=f"No hay datos disponibles para el grupo {group}")
-    _catalog_cache[group] = (now, satellites)
+    if satellites[0].get("_tle_stale"):
+        # A stale response must not mask a successful background refresh for two hours.
+        _catalog_cache.pop(group, None)
+    else:
+        _catalog_cache[group] = (now, satellites)
     return satellites
 
 
@@ -47,10 +53,17 @@ def home():
 
 @app.get("/api/catalog")
 def get_catalog(
+    response: Response,
     group: str = Query("stations"),
     search: str = Query("", max_length=80),
     limit: int = Query(100, ge=1, le=500),
 ):
+    # CelesTrak refreshes GP data every two hours. Cache catalogs at Vercel's CDN
+    # so cold function instances do not repeatedly hit the upstream service.
+    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["Vercel-CDN-Cache-Control"] = (
+        "public, max-age=7200, stale-while-revalidate=86400"
+    )
     satellites = _catalog(group)
     search_term = search.strip().casefold()
     matches = (
