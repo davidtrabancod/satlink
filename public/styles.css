@@ -236,6 +236,132 @@ body.sidebar-collapsed .main-content { width: 100%; margin-left: 0; padding-left
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
+/* Fine-grain cockpit detailing */
+@keyframes beacon-breathe {
+  0%, 100% { opacity: .62; box-shadow: 0 0 5px currentColor; }
+  50% { opacity: 1; box-shadow: 0 0 11px currentColor, 0 0 20px color-mix(in srgb, currentColor 38%, transparent); }
+}
+@keyframes orbital-ring-turn {
+  from { transform: translateY(-50%) rotate(0deg); }
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+@keyframes panel-glint {
+  0%, 100% { opacity: .48; }
+  50% { opacity: .95; }
+}
+
+.masthead-status, .rf-live-badge span, .location-icon { animation: beacon-breathe 3.2s ease-in-out infinite; }
+.satlink-masthead::before {
+  border-top-color: rgba(132, 233, 255, .52);
+  border-right-color: rgba(132, 233, 255, .28);
+  animation: orbital-ring-turn 54s linear infinite;
+}
+.masthead-kicker::after {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  margin-left: auto;
+  border: 1px solid rgba(112, 224, 210, .22);
+  border-radius: 6px;
+  background: rgba(7, 39, 48, .56);
+  color: #81e6d9;
+  content: "SYSTEM ONLINE";
+  font-size: 8px;
+  letter-spacing: .12em;
+  white-space: nowrap;
+}
+.sidebar-top::after {
+  position: absolute;
+  right: 24px;
+  bottom: 3px;
+  left: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(103, 212, 255, .32), transparent);
+  content: "";
+}
+.sidebar label { letter-spacing: .015em; }
+.sidebar-section-index { box-shadow: inset 0 0 14px rgba(103, 212, 255, .08), 0 0 14px rgba(103, 212, 255, .04); }
+.field-select, .field-search, .number-field, .rf-fields input {
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+.field-select:hover, .field-search:hover, .number-field:hover, .rf-fields input:hover {
+  border-color: rgba(103, 212, 255, .42);
+  background-color: rgba(13, 37, 57, .96);
+}
+.field-select:focus, .field-search:focus, .number-field:focus-within, .rf-fields input:focus {
+  box-shadow: 0 0 0 3px rgba(103, 212, 255, .1), 0 0 22px rgba(103, 212, 255, .08);
+}
+.number-field button { transition: background .16s ease, color .16s ease, box-shadow .16s ease; }
+.number-field button:hover { color: #e8fbff; box-shadow: inset 0 0 14px rgba(103, 212, 255, .13); }
+.location-button { box-shadow: inset 0 1px rgba(255, 255, 255, .04); transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
+.location-button:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(28, 147, 135, .15); }
+.range-field input { cursor: pointer; }
+.range-field input::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(112, 224, 210, .12), 0 0 14px rgba(112, 224, 210, .5); }
+
+.hud-cell { isolation: isolate; }
+.hud-cell::after {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: rgba(173, 204, 228, .42);
+  content: "SYS / 01";
+  font: 500 8px 'DM Mono', monospace;
+  letter-spacing: .12em;
+}
+.hud-cell:nth-child(2)::after { content: "SYS / 02"; }
+.hud-cell:nth-child(3)::after { content: "SYS / 03"; }
+.hud-cell:nth-child(4)::after { content: "SYS / 04"; }
+.hud-cell:nth-child(3) .hud-value { color: #c2b0ff; text-shadow: 0 0 15px rgba(181, 155, 255, .3); }
+.hud-cell:nth-child(4) .hud-value { color: #8ce9df; text-shadow: 0 0 15px rgba(120, 225, 215, .22); }
+.metric-card::before {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7ce5ff;
+  box-shadow: 0 0 10px #7ce5ff;
+  content: "";
+  animation: beacon-breathe 2.8s ease-in-out infinite;
+}
+.metric-card::after { top: 12px; right: 13px; }
+.metric-label { padding-left: 14px; }
+.tab-button:not(.active) .tab-icon { transition: transform .2s ease, color .2s ease, filter .2s ease; }
+.tab-button:not(.active):hover .tab-icon { transform: scale(1.12); color: #a3efff; filter: drop-shadow(0 0 8px rgba(103, 212, 255, .5)); }
+.tab-button.active .tab-icon { filter: drop-shadow(0 0 9px rgba(103, 212, 255, .55)); }
+.tab-button:focus-visible, .sidebar-toggle:focus-visible, .sidebar-open:focus-visible, .primary-button:focus-visible, .location-button:focus-visible { outline-offset: 3px; }
+
+.visual-frame::after { animation: panel-glint 7s ease-in-out infinite; }
+.visual-frame::before { box-shadow: 0 0 16px rgba(103, 212, 255, .08); }
+.globe-frame { background-image: radial-gradient(ellipse at 50% 46%, rgba(19, 73, 115, .14), transparent 61%); }
+.tracker-frame { background-image: radial-gradient(ellipse at 50% 50%, rgba(16, 70, 105, .13), transparent 68%); }
+.pass-table th { position: sticky; top: 0; z-index: 1; }
+.pass-table tbody tr:hover td { box-shadow: inset 0 1px rgba(103, 212, 255, .1), inset 0 -1px rgba(103, 212, 255, .1); }
+.rf-panel-index { box-shadow: inset 0 0 16px rgba(103, 212, 255, .1), 0 0 14px rgba(103, 212, 255, .05); }
+.rf-live-badge { box-shadow: inset 0 1px rgba(255, 255, 255, .04); }
+.rf-result-card.link-ok::before { background: #70e0d2; box-shadow: 0 0 10px rgba(112, 224, 210, .6); }
+.rf-result-card.link-low::before { background: #b9d2ff; }
+.site-footer span:first-child { color: rgba(123, 211, 242, .65); }
+::selection { background: rgba(68, 174, 220, .35); color: #fff; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: rgba(3, 11, 24, .76); }
+::-webkit-scrollbar-thumb { border: 2px solid rgba(3, 11, 24, .76); border-radius: 99px; background: rgba(82, 151, 183, .56); }
+::-webkit-scrollbar-thumb:hover { background: rgba(103, 212, 255, .78); }
+
+@media (max-width: 760px) {
+  .masthead-kicker::after { display: none; }
+  .satlink-masthead::before { animation-duration: 70s; }
+  .hud-cell::after { top: 7px; right: 8px; font-size: 6px; }
+  .metric-card::before { top: 10px; left: 10px; width: 5px; height: 5px; }
+  .metric-label { padding-left: 10px; }
+  .visual-frame::after { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
 /* Unified orbital console finish */
 :root {
   --canvas: #030b18;
