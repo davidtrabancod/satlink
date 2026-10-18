@@ -26,7 +26,7 @@ Abre <http://127.0.0.1:8000>.
 ## Desplegar en Vercel
 
 1. Importa el repositorio en Vercel y deja el directorio raíz en `.`.
-2. Vercel detecta `index.py` como aplicación FastAPI y toma las dependencias de `pyproject.toml`.
+2. Vercel carga la aplicación FastAPI desde `index:app`, configurada en `pyproject.toml`, y toma las dependencias del mismo archivo.
 3. Despliega el proyecto. No hace falta configurar variables de entorno.
 
 El frontend está en `public/`; la API y el punto de entrada FastAPI están en `index.py`. Los cálculos orbitales existentes siguen en `src/satlink/core/`.

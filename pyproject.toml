@@ -27,3 +27,6 @@ dev = [
 
 [tool.setuptools.package-data]
 "satlink.core" = ["assets/tle/*.json", "assets/*.npz"]
+
+[tool.vercel]
+entrypoint = "index:app"
