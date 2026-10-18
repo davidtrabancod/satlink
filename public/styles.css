@@ -400,3 +400,173 @@ body {
   .hud-cell { border-radius: 10px; }
   .tab-button { font-size: 10px; }
 }
+
+/* Mission-display layer: atmospheric depth, sharper hierarchy, restrained motion */
+body::before {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 19%, rgba(194, 238, 255, .42) 50%, transparent 100%),
+    radial-gradient(1px 1px at 79% 16%, rgba(117, 219, 255, .34) 50%, transparent 100%),
+    radial-gradient(1px 1px at 56% 73%, rgba(194, 238, 255, .28) 50%, transparent 100%),
+    radial-gradient(1px 1px at 91% 62%, rgba(117, 219, 255, .32) 50%, transparent 100%);
+  background-size: 340px 290px, 410px 370px, 500px 420px, 620px 520px;
+  content: "";
+  opacity: .48;
+  pointer-events: none;
+}
+.app-shell { position: relative; z-index: 1; }
+.main-content { position: relative; isolation: isolate; overflow-x: clip; }
+.main-content::before {
+  position: absolute;
+  z-index: -1;
+  top: 330px;
+  right: -310px;
+  width: min(760px, 72vw);
+  aspect-ratio: 1;
+  border: 1px solid rgba(103, 212, 255, .075);
+  border-radius: 50%;
+  box-shadow: 0 0 0 34px rgba(103, 212, 255, .018), 0 0 0 82px rgba(103, 212, 255, .014), inset 0 0 90px rgba(103, 212, 255, .025);
+  content: "";
+  pointer-events: none;
+}
+
+.satlink-masthead {
+  min-height: 228px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-color: rgba(109, 220, 255, .27);
+  background:
+    linear-gradient(115deg, transparent 55%, rgba(71, 186, 255, .07) 55.1%, transparent 55.4%),
+    radial-gradient(ellipse at 88% 50%, rgba(49, 171, 226, .2), transparent 32%),
+    linear-gradient(115deg, rgba(10, 32, 53, .97), rgba(5, 18, 34, .84) 58%, rgba(10, 36, 56, .78));
+  box-shadow: inset 0 1px rgba(228, 249, 255, .09), 0 24px 58px rgba(0, 0, 0, .25), 0 0 38px rgba(31, 141, 194, .08);
+}
+.satlink-masthead::before {
+  top: 50%;
+  right: 8%;
+  width: 338px;
+  height: 338px;
+  transform: translateY(-50%);
+  border-color: rgba(106, 221, 255, .19);
+  box-shadow: 0 0 0 28px rgba(103, 212, 255, .03), 0 0 0 62px rgba(103, 212, 255, .022), 0 0 90px rgba(50, 169, 223, .12), inset 0 0 65px rgba(103, 212, 255, .07);
+}
+.satlink-masthead::after { width: 38%; }
+.masthead-kicker { letter-spacing: .18em; }
+.satlink-wordmark { margin-top: 10px; letter-spacing: -.035em; }
+.wordmark-satlink { font-size: clamp(70px, 7vw, 94px); }
+.wordmark-studio { font-size: clamp(40px, 4vw, 52px); letter-spacing: .015em; }
+.masthead-description { font-size: 16px; }
+
+.mission-hud-box { gap: 14px; }
+.hud-cell, .metric-card, .rf-result-card, .rf-panel, .pass-table-wrap, .visual-frame {
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.hud-cell { min-height: 126px; align-items: flex-start; padding: 18px 19px; text-align: left; }
+.hud-cell::before { left: 19px; width: 54px; height: 2px; }
+.hud-cell:nth-child(1) { --tile-accent: #7ce5ff; }
+.hud-cell:nth-child(2) { --tile-accent: #8ebdff; }
+.hud-cell:nth-child(3) { --tile-accent: #b59bff; }
+.hud-cell:nth-child(4) { --tile-accent: #78e1d7; }
+.hud-label { justify-content: flex-start; color: #a9bdd0; font-size: 11px; letter-spacing: .04em; }
+.hud-value { margin-top: 3px; font-size: clamp(16px, 1.45vw, 21px); text-align: left; }
+.hud-cell:hover, .metric-card:hover, .rf-result-card:hover { transform: translateY(-2px); border-color: rgba(103, 212, 255, .38); box-shadow: inset 0 1px rgba(255, 255, 255, .055), 0 16px 34px rgba(0, 0, 0, .2), 0 0 20px rgba(103, 212, 255, .06); }
+
+.tab-bar { gap: 8px; padding: 8px; border-color: rgba(103, 212, 255, .23); }
+.tab-button { height: 68px; gap: 12px; border-radius: 12px; }
+.tab-button > span:last-child { flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+.tab-button small { font-size: 8px; letter-spacing: .16em; }
+.tab-button.active { background: linear-gradient(135deg, rgba(31, 115, 151, .72), rgba(12, 42, 66, .96)); box-shadow: inset 3px 0 #78e4ff, inset 0 1px rgba(255, 255, 255, .11), 0 0 24px rgba(51, 184, 237, .16); }
+.tab-icon { width: 42px; font-size: 39px; }
+
+.view-heading { margin-bottom: 19px; letter-spacing: .01em; }
+.visual-frame { position: relative; border-color: rgba(101, 207, 255, .29); }
+.visual-frame::before {
+  position: absolute;
+  z-index: 2;
+  top: 15px;
+  left: 16px;
+  padding: 6px 9px;
+  border: 1px solid rgba(103, 212, 255, .22);
+  border-radius: 6px;
+  background: rgba(3, 13, 26, .7);
+  color: rgba(180, 226, 249, .78);
+  content: "ORBITAL TELEMETRY  /  LIVE";
+  font: 500 8px 'DM Mono', monospace;
+  letter-spacing: .13em;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+.tracker-frame::before { content: "GROUND TRACK  /  UTC"; }
+.visual-frame::after {
+  position: absolute;
+  z-index: 2;
+  inset: 8px;
+  border: 1px solid rgba(137, 220, 255, .08);
+  border-radius: 10px;
+  content: "";
+  pointer-events: none;
+}
+.tracker-frame:hover, .globe-frame:hover { border-color: rgba(103, 212, 255, .42); box-shadow: inset 0 0 50px rgba(0, 101, 202, .09), 0 22px 50px rgba(0, 0, 0, .22), 0 0 26px rgba(43, 160, 219, .09); }
+
+.metric-grid { gap: 12px; }
+.metric-card { padding: 18px; }
+.metric-value { margin-top: 10px; }
+.pass-table-wrap { box-shadow: 0 16px 38px rgba(0, 0, 0, .2); }
+.pass-table tbody tr { transition: background .16s ease; }
+.pass-table tbody tr:hover td { background: rgba(42, 128, 171, .22); }
+.rf-panel { position: relative; overflow: hidden; }
+.rf-panel::before {
+  position: absolute;
+  top: 0;
+  left: 20px;
+  width: 76px;
+  height: 2px;
+  background: linear-gradient(90deg, #70e0d2, #67d4ff, transparent);
+  content: "";
+}
+.rf-panel:hover { border-color: rgba(103, 212, 255, .3); }
+.rf-result-card { position: relative; overflow: hidden; }
+.rf-result-card::before { position: absolute; top: 0; left: 14px; width: 34px; height: 1px; background: rgba(103, 212, 255, .55); content: ""; }
+.rf-result-card strong { letter-spacing: -.035em; }
+.primary-button { box-shadow: 0 8px 20px rgba(25, 130, 177, .18); }
+.primary-button:hover:not(:disabled) { box-shadow: 0 10px 26px rgba(25, 157, 211, .26); }
+.site-footer { padding: 16px 2px 5px; }
+
+@media (max-width: 1050px) {
+  .hud-cell { padding: 15px 12px; }
+  .tab-button { gap: 7px; }
+  .tab-icon { width: 32px; }
+}
+@media (max-width: 760px) {
+  .main-content::before { top: 440px; right: -360px; width: 620px; }
+  .satlink-masthead { min-height: 198px; padding-top: 19px; padding-bottom: 22px; }
+  .satlink-masthead::before { right: -100px; width: 270px; height: 270px; }
+  .wordmark-satlink { font-size: 56px; }
+  .wordmark-studio { font-size: 33px; }
+  .hud-cell { min-height: 88px; align-items: center; padding: 10px 6px; text-align: center; }
+  .hud-cell::before { left: 50%; width: 42px; transform: translateX(-50%); }
+  .hud-label { justify-content: center; font-size: 9px; text-align: center; }
+  .hud-value { font-size: 15px; text-align: center; }
+  .tab-button { height: 58px; gap: 5px; }
+  .tab-button > span:last-child { gap: 1px; }
+  .tab-icon { width: 28px; }
+  .visual-frame::before { top: 10px; left: 10px; padding: 5px 7px; font-size: 7px; }
+  .visual-frame::after { inset: 5px; border-radius: 8px; }
+}
+@media (max-width: 420px) {
+  .satlink-masthead { min-height: 184px; }
+  .wordmark-satlink { font-size: 47px; }
+  .wordmark-studio { font-size: 28px; }
+  .masthead-description { font-size: 13px; }
+  .hud-cell { min-height: 82px; }
+  .hud-label { font-size: 8px; }
+  .hud-value { font-size: 13px; }
+  .tab-icon { width: 23px; font-size: 27px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
