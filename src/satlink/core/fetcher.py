@@ -55,6 +55,32 @@ def _write_cache(group_name: str, satellites):
         pass
 
 
+def _mark_stale(satellites, fetched_at: float, source: str):
+    return [
+        {
+            **satellite,
+            "_tle_stale": True,
+            "_tle_fetched_at": fetched_at,
+            "_tle_source": source,
+        }
+        for satellite in satellites
+    ]
+
+
+def _read_bundled_snapshot(group_name: str):
+    """Load the last known TLE set shipped with the app as an offline fallback."""
+    path = Path(__file__).with_name("assets") / "tle" / f"{group_name}.json"
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        satellites = record["satellites"]
+        fetched_at = float(record["fetched_at"])
+        if isinstance(satellites, list) and satellites:
+            return _mark_stale(satellites, fetched_at, "bundled")
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return []
+
+
 def _download_tles(group_name: str):
     url = f"https://celestrak.org/NORAD/elements/gp.php?GROUP={group_name}&FORMAT=tle"
     headers = {
@@ -66,7 +92,9 @@ def _download_tles(group_name: str):
         response = requests.get(url, headers=headers, timeout=(2, 4))
         response.raise_for_status()
     except requests.RequestException as exc:
-        print(f"Error cargando TLEs desde CelesTrak ({exc}).")
+        response_text = getattr(getattr(exc, "response", None), "text", "").strip()
+        detail = f"; respuesta: {response_text[:240]}" if response_text else ""
+        print(f"Error cargando TLEs desde CelesTrak ({exc}){detail}.")
         return []
 
     lines = [line.strip() for line in response.text.splitlines() if line.strip()]
@@ -112,11 +140,12 @@ def fetch_tle_by_group(group_name: str = "stations"):
     if cached_satellites:
         if now - fetched_at > _REFRESH_AFTER_SECONDS:
             _refresh_in_background(group_name)
+            return _mark_stale(cached_satellites, fetched_at, "local")
         return cached_satellites
 
     with _refresh_locks_guard:
         if now < _failed_fetch_until.get(group_name, 0):
-            return []
+            return _read_bundled_snapshot(group_name)
 
     satellites = _download_tles(group_name)
     if satellites:
@@ -127,4 +156,4 @@ def fetch_tle_by_group(group_name: str = "stations"):
 
     with _refresh_locks_guard:
         _failed_fetch_until[group_name] = time.time() + _FAILURE_RETRY_SECONDS
-    return []
+    return _read_bundled_snapshot(group_name)

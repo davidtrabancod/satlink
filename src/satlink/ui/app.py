@@ -1104,6 +1104,12 @@ try:
         st.error(f"No hay datos de satelites disponibles para el grupo '{group}'.")
         st.info("CelesTrak puede limitar temporalmente las consultas. Prueba otro grupo o vuelve a intentarlo despues.")
         st.stop()
+    if sat_list[0].get("_tle_stale"):
+        saved_at = datetime.fromtimestamp(sat_list[0]["_tle_fetched_at"], timezone.utc)
+        st.warning(
+            f"CelesTrak no ha entregado datos nuevos. Se usa una copia de respaldo del "
+            f"{saved_at:%d/%m/%Y %H:%M} UTC; las predicciones pueden estar desactualizadas."
+        )
     sat_names = [s["name"] for s in sat_list]
     default_idx = sat_names.index("ISS (ZARYA)") if "ISS (ZARYA)" in sat_names else 0
     selected_name = st.sidebar.selectbox("Satélite", sat_names, index=default_idx)
