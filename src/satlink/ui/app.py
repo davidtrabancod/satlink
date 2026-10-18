@@ -1,5 +1,4 @@
 import json
-import re
 from html import escape
 import streamlit as st
 import numpy as np
@@ -21,11 +20,6 @@ st.set_page_config(
     page_icon="🛰️",
     layout="wide",
     initial_sidebar_state="expanded"
-)
-
-satellite_hologram_component = st.components.v1.declare_component(
-    "satellite_hologram",
-    path=str(Path(__file__).parent / "components" / "satellite_hologram" / "frontend"),
 )
 
 # 2. SISTEMA VISUAL
@@ -165,6 +159,106 @@ st.markdown("""
         border-radius: 3px;
         color: var(--amber);
         font: 400 9px 'DM Mono', monospace;
+    }
+
+    .satellite-holo-card {
+        margin: 3px 0 18px;
+        padding: 9px 10px 8px;
+        overflow: hidden;
+        border: 1px solid rgba(103, 212, 255, 0.27);
+        border-radius: 6px;
+        background: linear-gradient(145deg, rgba(9, 31, 47, 0.95), rgba(4, 17, 29, 0.96));
+        box-shadow: inset 0 0 24px rgba(25, 150, 220, 0.08), 0 0 14px rgba(25, 150, 220, 0.06);
+    }
+
+    .satellite-holo-heading, .satellite-holo-name {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #82dfff;
+        font: 500 9px 'DM Mono', monospace;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .satellite-holo-state { color: #71d7c1; }
+    .satellite-holo-viewport {
+        position: relative;
+        height: 126px;
+        margin: 4px 0 3px;
+        overflow: hidden;
+        background: radial-gradient(ellipse at 50% 60%, rgba(23, 151, 219, .17), transparent 59%);
+    }
+
+    .satellite-holo-orbit {
+        position: absolute;
+        top: 10px; left: 50%;
+        width: 98px; height: 98px;
+        border: 1px solid rgba(83, 202, 255, .26);
+        border-radius: 50%;
+        transform: translateX(-50%) rotateX(68deg) rotateZ(-20deg);
+        box-shadow: 0 0 12px rgba(72, 192, 255, .16);
+    }
+
+    .satellite-holo-orbit::after {
+        content: '';
+        position: absolute;
+        top: 5px; left: 17px;
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: #71e2ff;
+        box-shadow: 0 0 8px #4dcaff;
+    }
+
+    .satellite-holo-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%; height: 100%;
+        overflow: visible;
+        filter: drop-shadow(0 0 4px rgba(65, 198, 255, .75));
+    }
+
+    .satellite-holo-model {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: satellite-holo-turn 12s ease-in-out infinite alternate;
+    }
+
+    @keyframes satellite-holo-turn {
+        from { transform: perspective(420px) rotateY(-18deg) rotateZ(-2deg); }
+        to { transform: perspective(420px) rotateY(18deg) rotateZ(2deg); }
+    }
+
+    .satellite-holo-scan {
+        position: absolute;
+        z-index: 2;
+        top: 0; left: 0;
+        width: 100%; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(98, 223, 255, .55), transparent);
+        animation: satellite-holo-scan 4s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes satellite-holo-scan {
+        from { transform: translateY(0); }
+        to { transform: translateY(126px); }
+    }
+
+    .satellite-holo-name {
+        justify-content: flex-start;
+        gap: 7px;
+        padding-top: 7px;
+        border-top: 1px solid rgba(103, 212, 255, .14);
+        color: #effaff;
+        font-size: 11px;
+        letter-spacing: .02em;
+    }
+
+    .satellite-holo-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .satellite-holo-dot { flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: #71d7c1; box-shadow: 0 0 8px #71d7c1; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .satellite-holo-model, .satellite-holo-scan { animation: none; }
     }
 
     [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
@@ -1103,102 +1197,123 @@ def build_globe_land_particles(radius_km):
     return particle_x, particle_y, particle_z
 
 
-def get_satellite_model(name, group_name):
-    """Return a sourced 3D mesh when the selected spacecraft is identified."""
-    normalized = re.sub(r"[^A-Z0-9]+", " ", name.upper()).strip()
-    nasa_url = "https://science.nasa.gov/3d-resources/"
-    nasa_credit = "NASA 3D Resources"
+def build_satellite_hologram(name, group_name):
+    """Create a type-based hologram with a stable silhouette variant per satellite."""
+    normalized = name.upper()
+    seed = sum((index + 1) * ord(char) for index, char in enumerate(normalized))
 
-    def model(filename, kind, credit=nasa_credit, source_url=nasa_url, accuracy="MISSION MODEL"):
-        return {
-            "file": filename,
-            "kind": kind,
-            "credit": credit,
-            "source_url": source_url,
-            "accuracy": accuracy,
-        }
+    if any(token in normalized for token in ("ISS", "ZARYA", "TIANGONG", "STATION", "CSS")):
+        kind = "Orbital station"
+    elif "STARLINK" in normalized or group_name == "starlink":
+        kind = "Starlink"
+    elif any(token in normalized for token in ("GPS", "NAVSTAR", "GALILEO", "GLONASS", "BEIDOU", "GNSS")):
+        kind = "Navigation satellite"
+    elif any(token in normalized for token in ("JWST", "WEBB", "HUBBLE", "TELESCOPE")):
+        kind = "Space observatory"
+    elif any(token in normalized for token in ("SENTINEL", "LANDSAT", "NOAA", "METOP", "GOES", "AQUA", "TERRA", "WEATHER")):
+        kind = "Earth observation"
+    elif any(token in normalized for token in ("CUBESAT", "CUBE", "LEMUR", "DOVE", "FLOCK", "SPIRE")):
+        kind = "CubeSat"
+    elif group_name == "geo":
+        kind = "Geostationary communications"
+    else:
+        kind = "Communications satellite"
 
-    # Dedicated models are checked before broader mission-family matches.
-    if "STARLINK" in normalized or group_name == "starlink":
-        return model(
-            "starlink.glb", "Starlink spacecraft", "Malacodart | Sketchfab | CC BY",
-            "https://sketchfab.com/3d-models/starlink-spacex-satellite-0a60f6720c5141c9a1c6d71aac108b31",
-            "STARLINK FAMILY MODEL",
+    accent = ("#72dcff", "#80f0d0", "#91bfff", "#6ee7ff")[seed % 4]
+    panel_width = 35 + seed % 17
+    panel_height = 30 + (seed // 3) % 15
+    columns = 3 + seed % 3
+    rows = 3 + (seed // 5) % 2
+    bus_width = 24 + seed % 11
+    bus_height = 22 + (seed // 7) % 10
+    x1, x2, cy = 160 - bus_width // 2, 160 + bus_width // 2, 63
+
+    def solar_array(x, y, width, height, col_count=columns, row_count=rows):
+        pieces = [
+            f'<path d="M{x} {y}h{width}v{height}h-{width}Z" fill="rgba(29,119,173,.22)" stroke="{accent}" stroke-width="1.2"/>'
+        ]
+        for column in range(1, col_count):
+            xx = x + width * column / col_count
+            pieces.append(f'<path d="M{xx:.1f} {y}v{height}" stroke="{accent}" stroke-opacity=".48" stroke-width=".65"/>')
+        for row in range(1, row_count):
+            yy = y + height * row / row_count
+            pieces.append(f'<path d="M{x} {yy:.1f}h{width}" stroke="{accent}" stroke-opacity=".42" stroke-width=".65"/>')
+        return "".join(pieces)
+
+    bus = (
+        f'<path d="M{x1} {cy - bus_height // 2}l{bus_width // 2} -7 {bus_width // 2} 7v{bus_height}l-{bus_width // 2} 7-{bus_width // 2} -7Z" '
+        f'fill="rgba(30,125,171,.38)" stroke="{accent}" stroke-width="1.5"/>'
+        f'<path d="M160 {cy - bus_height // 2}v{bus_height}m-7 -{bus_height // 2 + 3}h14m-14 {bus_height - 4}h14" stroke="{accent}" stroke-opacity=".62" stroke-width=".8"/>'
+    )
+    left_x = x1 - panel_width - 9
+    right_x = x2 + 9
+
+    if kind == "Starlink":
+        # Starlink spacecraft have a compact, flat bus and one broad solar array.
+        array_x = x2 + 9 if seed % 2 else x1 - panel_width - 9
+        body = (
+            solar_array(array_x, cy - panel_height // 2, panel_width, panel_height)
+            + f'<path d="M{x1} {cy - 8}h{bus_width}v16h-{bus_width}Z" fill="rgba(30,125,171,.5)" stroke="{accent}" stroke-width="1.4"/>'
+            + f'<path d="M160 {cy - 8}v16m-8 -8h16M{160 + (1 if seed % 3 else -1) * 23} {cy - 3}q13 -10 20 0-7 10-20 0Z" stroke="{accent}" fill="rgba(90,220,255,.17)" stroke-width="1"/>'
         )
-    if any(token in normalized for token in ("TIANGONG", "TIANHE", "WENTIAN", "MENGTIAN", "CSS")):
-        return model(
-            "tiangong.glb", "Tiangong space station", "w29572227 | Sketchfab | CC BY",
-            "https://sketchfab.com/3d-models/tiangong-aca22b1dd6d242c1ae7b88de2f483b77",
-            "STATION CONFIGURATION",
+    elif kind == "Orbital station":
+        body = (
+            solar_array(left_x, 42, panel_width, 38, max(columns, 4), 4)
+            + solar_array(right_x, 42, panel_width, 38, max(columns, 4), 4)
+            + f'<path d="M92 {cy}h{ x1 - 92 }m{ x2 - x1 } 0h{ 228 - x2 }M160 36v54" stroke="{accent}" stroke-width="2"/>'
+            + bus
+            + f'<rect x="146" y="{cy - 5}" width="28" height="10" rx="4" fill="rgba(112,220,255,.2)" stroke="{accent}"/>'
         )
-    if any(token in normalized for token in ("ISS", "ZARYA", "POISK", "NAUKA")):
-        return model("iss.glb", "International Space Station", accuracy="STATION MODEL")
-    if "HUBBLE" in normalized:
-        return model("hubble.glb", "Hubble Space Telescope")
-    if any(token in normalized for token in ("JWST", "JAMES WEBB", "WEBB")):
-        return model("jwst.glb", "James Webb Space Telescope")
-    if "GOES" in normalized:
-        return model("goes.glb", "GOES-R spacecraft family", accuracy="MISSION FAMILY MODEL")
-    if "TDRS" in normalized or "TDRSS" in normalized:
-        return model("tdrs.glb", "Tracking and Data Relay Satellite", accuracy="MISSION FAMILY MODEL")
-    if "LANDSAT 9" in normalized or "LANDSAT9" in normalized:
-        return model(
-            "landsat9.glb", "Landsat 9", source_url="https://science.nasa.gov/mission/landsat/outreach/landsat-9-3d-model/"
+    elif kind == "Space observatory":
+        mirror_size = 10 + seed % 4
+        body = (
+            solar_array(left_x, 47, panel_width, 32)
+            + solar_array(right_x, 47, panel_width, 32)
+            + bus
+            + f'<path d="M160 {cy + bus_height // 2}v18l-10 8h20l-10-8m0-18v-22" stroke="{accent}" stroke-width="1.3"/>'
+            + f'<circle cx="160" cy="{cy + bus_height // 2 + 25}" r="{mirror_size}" fill="rgba(255,206,105,.22)" stroke="#ffd477" stroke-width="1.5"/>'
+            + f'<path d="M160 {cy + bus_height // 2 + 25 - mirror_size}v{mirror_size * 2}m-{mirror_size} -{mirror_size}h{mirror_size * 2}" stroke="#ffd477" stroke-opacity=".65" stroke-width=".7"/>'
         )
-    if "LANDSAT 8" in normalized or "LANDSAT8" in normalized:
-        return model("landsat8.glb", "Landsat 8")
-    if "LANDSAT" in normalized:
-        return model("landsat8.glb", "Landsat 8/9 spacecraft family", accuracy="MISSION FAMILY MODEL")
-    noaa_number = re.search(r"NOAA\s*(\d+)", normalized)
-    if noaa_number:
-        if int(noaa_number.group(1)) >= 20:
-            return model("suomi-npp.glb", "JPSS spacecraft family", accuracy="MISSION FAMILY MODEL")
-        return model("poes.glb", "NOAA POES spacecraft family", accuracy="MISSION FAMILY MODEL")
-    if "SUOMI" in normalized or "NPP" in normalized or "JPSS" in normalized:
-        return model("suomi-npp.glb", "Suomi NPP / JPSS spacecraft family", accuracy="MISSION FAMILY MODEL")
-    if "AQUA" in normalized:
-        return model("aqua.glb", "Aqua")
-    if "TERRA" in normalized:
-        return model("terra.glb", "Terra")
-    if "AURA" in normalized:
-        return model("aura.glb", "Aura")
-    if "TESS" in normalized:
-        return model("tess.glb", "Transiting Exoplanet Survey Satellite")
-    if "CALIPSO" in normalized:
-        return model("calipso.glb", "CALIPSO")
-    if "ICESAT 2" in normalized or "ICESAT2" in normalized:
-        return model("icesat2.glb", "ICESat-2")
-    if "ICESAT" in normalized:
-        return model("icesat2.glb", "ICESat mission family", accuracy="MISSION FAMILY MODEL")
-    if "FERMI" in normalized or "GLAST" in normalized:
-        return model("fermi.glb", "Fermi Gamma-ray Space Telescope")
-    if "OCO 2" in normalized or "OCO2" in normalized:
-        return model("oco2.glb", "Orbiting Carbon Observatory 2")
-    if "GRACE FO" in normalized or "GRACEFO" in normalized:
-        return model("grace.glb", "GRACE Follow-On", accuracy="MISSION FAMILY MODEL")
-    if "SENTINEL 1" in normalized or "SENTINEL1" in normalized:
-        return model(
-            "sentinel-1a.glb", "Sentinel-1 spacecraft family", "Absideon | Sketchfab | CC BY",
-            "https://github.com/Buggy1111/earth-pulse/blob/main/docs/DATOVE-ZDROJE.md",
-            "MISSION FAMILY MODEL",
+    elif kind == "Navigation satellite":
+        body = (
+            solar_array(left_x, 45, panel_width, 36)
+            + solar_array(right_x, 45, panel_width, 36)
+            + bus
+            + f'<path d="M160 47V28m0 56v18m-13-39h-16m45 0h16" stroke="{accent}" stroke-width="1.2"/>'
+            + f'<circle cx="160" cy="26" r="5" fill="rgba(112,220,255,.28)" stroke="{accent}"/><circle cx="160" cy="104" r="4" fill="rgba(112,220,255,.24)" stroke="{accent}"/>'
         )
-    if "SENTINEL 6" in normalized or "SENTINEL6" in normalized or "JASON CS" in normalized:
-        return model("sentinel6.glb", "Sentinel-6 / Jason-CS")
-    if "JASON 2" in normalized or "JASON 3" in normalized:
-        return model("sentinel6.glb", "Jason satellite family", accuracy="MISSION FAMILY MODEL")
-    if "SWOT" in normalized:
-        return model("swot.glb", "Surface Water and Ocean Topography", "NASA/JPL-Caltech", "https://swot.jpl.nasa.gov/", "MISSION MODEL")
-    if "CYGNSS" in normalized:
-        return model("cygnss.glb", "CYGNSS")
-    if "CLOUDSAT" in normalized:
-        return model("cloudsat.glb", "CloudSat")
-    if "RADARSAT 1" in normalized or "RADARSAT1" in normalized:
-        return model("radarsat1.glb", "RADARSAT-1")
-    if any(token in normalized for token in ("INMARSAT", "INTELSAT", "EUTELSAT", "ASTRA", "SSL 1300")):
-        return model("ssl1300.glb", "SSL-1300 communications platform", accuracy="PLATFORM FAMILY MODEL")
-    if any(token in normalized for token in ("CUBESAT", "KNACKSAT", "UITMSAT", "HMU SAT", "GXIBA")):
-        return model("cubesat-2ru.glb", "2U CubeSat form factor", accuracy="SPACECRAFT CLASS MODEL")
-    return None
+    elif kind == "Earth observation":
+        body = (
+            solar_array(left_x, 45, panel_width, 37)
+            + solar_array(right_x, 45, panel_width, 37)
+            + bus
+            + f'<path d="M160 {cy + bus_height // 2}v21l-7 8h14l-7-8m-4-5h8" stroke="{accent}" stroke-width="1.3"/>'
+            + f'<circle cx="160" cy="{cy + bus_height // 2 + 25}" r="5" fill="rgba(115,231,255,.3)" stroke="{accent}"/>'
+        )
+    elif kind == "CubeSat":
+        size = 26 + seed % 8
+        body = (
+            solar_array(160 - size // 2 - panel_width - 5, 52, panel_width // 2, 24, 2, 2)
+            + solar_array(160 + size // 2 + 5, 52, panel_width // 2, 24, 2, 2)
+            + f'<path d="M{160-size//2} {cy-size//2}l{size//2} -6 {size//2} 6v{size}l-{size//2} 6-{size//2} -6Z" fill="rgba(30,125,171,.42)" stroke="{accent}" stroke-width="1.5"/>'
+            + f'<path d="M160 {cy-size//2}v{size}m-6 -{size//2+2}h12m-12 {size-4}h12M160 {cy-size//2}V27" stroke="{accent}" stroke-width="1"/>'
+            + f'<circle cx="160" cy="25" r="2.5" fill="{accent}"/>'
+        )
+    else:
+        dish_x = 160 + (1 if seed % 2 else -1) * (bus_width // 2 + 16)
+        body = (
+            solar_array(left_x, 45, panel_width, 37)
+            + solar_array(right_x, 45, panel_width, 37)
+            + bus
+            + f'<path d="M{dish_x} {cy - 3}q{12 if dish_x < 160 else -12} -16 {22 if dish_x < 160 else -22} -12q-4 14-22 12Z" fill="rgba(112,220,255,.18)" stroke="{accent}" stroke-width="1.2"/>'
+            + f'<path d="M160 43V27l-10-7m10 7 10-7" stroke="{accent}" stroke-width="1.1"/>'
+        )
+
+    model_svg = (
+        f'<svg class="satellite-holo-svg" viewBox="0 0 320 126" role="img" aria-hidden="true">'
+        f'<g class="satellite-holo-model" fill="none" stroke-linejoin="round" stroke-linecap="round">{body}</g></svg>'
+    )
+    return kind, model_svg
 
 try:
     with st.spinner("🛰️ Descargando telemetría TLE de CelesTrak..."):
@@ -1207,18 +1322,18 @@ try:
     default_idx = sat_names.index("ISS (ZARYA)") if "ISS (ZARYA)" in sat_names else 0
     selected_name = st.sidebar.selectbox("Satélite", sat_names, index=default_idx)
 
-    model_info = get_satellite_model(selected_name, group)
-    with st.sidebar:
-        satellite_hologram_component(
-            name=selected_name,
-            model=model_info["file"] if model_info else None,
-            kind=model_info["kind"] if model_info else "UNMAPPED SPACECRAFT",
-            accuracyLabel=model_info["accuracy"] if model_info else "NO VERIFIED MODEL",
-            sourceLabel=model_info["credit"] if model_info else "No public mesh found",
-            sourceUrl=model_info["source_url"] if model_info else "",
-            default=None,
-            key="satellite_hologram_view",
-        )
+    hologram_type, hologram_svg = build_satellite_hologram(selected_name, group)
+    st.sidebar.markdown(f"""
+    <div class="satellite-holo-card" aria-label="Vista holografica del satelite seleccionado">
+        <div class="satellite-holo-heading"><span>{escape(hologram_type)}</span><span class="satellite-holo-state">3D / LIVE</span></div>
+        <div class="satellite-holo-viewport">
+            <div class="satellite-holo-orbit"></div>
+            {hologram_svg}
+            <div class="satellite-holo-scan"></div>
+        </div>
+        <div class="satellite-holo-name"><i class="satellite-holo-dot"></i><span>{escape(selected_name)}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
     tle_data = next(s for s in sat_list if s["name"] == selected_name)
 
