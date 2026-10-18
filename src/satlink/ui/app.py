@@ -1,8 +1,7 @@
 import json
+from html import escape
 import streamlit as st
-import plotly.graph_objects as go
 import numpy as np
-import pandas as pd
 from pathlib import Path
 from datetime import datetime, timezone
 from streamlit_geolocation import streamlit_geolocation
@@ -160,6 +159,106 @@ st.markdown("""
         border-radius: 3px;
         color: var(--amber);
         font: 400 9px 'DM Mono', monospace;
+    }
+
+    .satellite-holo-card {
+        margin: 3px 0 18px;
+        padding: 9px 10px 8px;
+        overflow: hidden;
+        border: 1px solid rgba(103, 212, 255, 0.27);
+        border-radius: 6px;
+        background: linear-gradient(145deg, rgba(9, 31, 47, 0.95), rgba(4, 17, 29, 0.96));
+        box-shadow: inset 0 0 24px rgba(25, 150, 220, 0.08), 0 0 14px rgba(25, 150, 220, 0.06);
+    }
+
+    .satellite-holo-heading, .satellite-holo-name {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #82dfff;
+        font: 500 9px 'DM Mono', monospace;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .satellite-holo-state { color: #71d7c1; }
+    .satellite-holo-viewport {
+        position: relative;
+        height: 126px;
+        margin: 4px 0 3px;
+        overflow: hidden;
+        background: radial-gradient(ellipse at 50% 60%, rgba(23, 151, 219, .17), transparent 59%);
+    }
+
+    .satellite-holo-orbit {
+        position: absolute;
+        top: 10px; left: 50%;
+        width: 98px; height: 98px;
+        border: 1px solid rgba(83, 202, 255, .26);
+        border-radius: 50%;
+        transform: translateX(-50%) rotateX(68deg) rotateZ(-20deg);
+        box-shadow: 0 0 12px rgba(72, 192, 255, .16);
+    }
+
+    .satellite-holo-orbit::after {
+        content: '';
+        position: absolute;
+        top: 5px; left: 17px;
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: #71e2ff;
+        box-shadow: 0 0 8px #4dcaff;
+    }
+
+    .satellite-holo-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%; height: 100%;
+        overflow: visible;
+        filter: drop-shadow(0 0 4px rgba(65, 198, 255, .75));
+    }
+
+    .satellite-holo-model {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: satellite-holo-turn 12s ease-in-out infinite alternate;
+    }
+
+    @keyframes satellite-holo-turn {
+        from { transform: perspective(420px) rotateY(-18deg) rotateZ(-2deg); }
+        to { transform: perspective(420px) rotateY(18deg) rotateZ(2deg); }
+    }
+
+    .satellite-holo-scan {
+        position: absolute;
+        z-index: 2;
+        top: 0; left: 0;
+        width: 100%; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(98, 223, 255, .55), transparent);
+        animation: satellite-holo-scan 4s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes satellite-holo-scan {
+        from { transform: translateY(0); }
+        to { transform: translateY(126px); }
+    }
+
+    .satellite-holo-name {
+        justify-content: flex-start;
+        gap: 7px;
+        padding-top: 7px;
+        border-top: 1px solid rgba(103, 212, 255, .14);
+        color: #effaff;
+        font-size: 11px;
+        letter-spacing: .02em;
+    }
+
+    .satellite-holo-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .satellite-holo-dot { flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: #71d7c1; box-shadow: 0 0 8px #71d7c1; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .satellite-holo-model, .satellite-holo-scan { animation: none; }
     }
 
     [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
@@ -783,7 +882,7 @@ def load_satellites(group_name):
     return fetch_tle_by_group(group_name)
 
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def predict_passes_cached(satellite_name, line1, line2, gs_lat, gs_lon, gs_alt, min_el):
     predictor = PassPredictor(satellite_name, line1, line2)
     return predictor.predict_passes(
@@ -804,6 +903,274 @@ def get_ground_track_cached(satellite_name, line1, line2, minutes_past, minutes_
     )
 
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def load_world_outline():
+    """Load low-resolution country coastlines for the lightweight tracker canvas."""
+    outline_path = Path(__file__).with_name("assets") / "world_110m_admin_0_countries.geojson"
+    with outline_path.open(encoding="utf-8") as outline_file:
+        world = json.load(outline_file)
+
+    polygons = []
+    for feature in world.get("features", []):
+        geometry = feature.get("geometry") or {}
+        coordinates = geometry.get("coordinates") or []
+        if geometry.get("type") == "Polygon":
+            countries = [coordinates]
+        elif geometry.get("type") == "MultiPolygon":
+            countries = coordinates
+        else:
+            continue
+        for country in countries:
+            if country and country[0]:
+                polygons.append(country[0])
+    return polygons
+
+
+def render_tracker_map(ground_track, state, gs_lat, gs_lon):
+    outline = load_world_outline()
+    track = [
+        [
+            int(point_time.timestamp() * 1000),
+            float(latitude),
+            float(longitude),
+        ]
+        for point_time, latitude, longitude in zip(
+            ground_track["datetime"],
+            ground_track["latitude"],
+            ground_track["longitude"],
+        )
+    ]
+    payload = {
+        "outline": outline,
+        "track": track,
+        "satelliteName": state["name"],
+        "station": [float(gs_lat), float(gs_lon)],
+    }
+
+    st.components.v1.html(
+        f"""
+        <style>
+            html, body {{ width: 100%; height: 100%; margin: 0; overflow: hidden; background: #040c14; }}
+            #tracker-stage {{ width: min(100%, 1080px); height: 100%; margin: 0 auto; overflow: hidden; border-radius: 7px; position: relative; background: #040c14; }}
+            #tracker-canvas {{ display: block; width: 100%; height: 100%; touch-action: none; cursor: zoom-in; }}
+        </style>
+        <div id="tracker-stage"><canvas id="tracker-canvas"></canvas></div>
+        <script>
+            const data = {json.dumps(payload)};
+            const stage = document.getElementById('tracker-stage');
+            const canvas = document.getElementById('tracker-canvas');
+            const ctx = canvas.getContext('2d', {{alpha: false}});
+            const base = document.createElement('canvas');
+            const baseCtx = base.getContext('2d', {{alpha: false}});
+            let landPath = null;
+            let graticulePath = null;
+            let width = 1080;
+            let height = 540;
+            let mapScale = 1;
+            let mapOffsetX = 0;
+            let mapOffsetY = 0;
+            let dpr = 1;
+            let zoom = 1;
+            let offsetX = 0;
+            let offsetY = 0;
+            const project = (lon, lat) => [
+                mapOffsetX + ((lon + 180) / 360) * 1080 * mapScale,
+                mapOffsetY + ((90 - lat) / 180) * 540 * mapScale,
+            ];
+
+            function drawBase() {{
+                base.width = Math.round(width * dpr);
+                base.height = Math.round(height * dpr);
+                baseCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                baseCtx.fillStyle = '#040c14';
+                baseCtx.fillRect(0, 0, width, height);
+                baseCtx.strokeStyle = 'rgba(91, 158, 203, 0.11)';
+                baseCtx.lineWidth = 1;
+                const graticule = new Path2D();
+                for (let lon = -180; lon <= 180; lon += 30) {{
+                    const x = project(lon, 0)[0];
+                    graticule.moveTo(x, 0); graticule.lineTo(x, height);
+                }}
+                for (let lat = -90; lat <= 90; lat += 30) {{
+                    const y = project(0, lat)[1];
+                    graticule.moveTo(0, y); graticule.lineTo(width, y);
+                }}
+                graticulePath = graticule;
+                baseCtx.stroke(graticulePath);
+
+                const land = new Path2D();
+                for (const polygon of data.outline) {{
+                    if (polygon.length < 3) continue;
+                    let started = false;
+                    for (const coordinate of polygon) {{
+                        const point = project(coordinate[0], coordinate[1]);
+                        if (!started) {{ land.moveTo(point[0], point[1]); started = true; }}
+                        else land.lineTo(point[0], point[1]);
+                    }}
+                    land.closePath();
+                }}
+                baseCtx.fillStyle = '#0d2031';
+                landPath = land;
+                baseCtx.fill(land, 'evenodd');
+                baseCtx.strokeStyle = 'rgba(102, 196, 255, 0.42)';
+                baseCtx.lineWidth = 0.65;
+                baseCtx.stroke(land);
+                return land;
+            }}
+
+            function draw() {{
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.fillStyle = '#040c14';
+                ctx.fillRect(0, 0, width, height);
+                ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * offsetX, dpr * offsetY);
+                if (zoom <= 1.001 && offsetX === 0 && offsetY === 0) {{
+                    ctx.drawImage(base, 0, 0, width, height);
+                }} else {{
+                    ctx.fillStyle = '#040c14';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.strokeStyle = 'rgba(91, 158, 203, 0.11)';
+                    ctx.lineWidth = 1 / zoom;
+                    ctx.stroke(graticulePath);
+                    ctx.fillStyle = '#0d2031';
+                    ctx.fill(landPath, 'evenodd');
+                    ctx.strokeStyle = 'rgba(102, 196, 255, 0.42)';
+                    ctx.lineWidth = 0.65 / zoom;
+                    ctx.stroke(landPath);
+                }}
+
+                ctx.strokeStyle = '#6ad8ff';
+                ctx.lineWidth = 2.5 / zoom;
+                ctx.shadowColor = 'rgba(70, 202, 255, 0.72)';
+                ctx.shadowBlur = 7 / zoom;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                let drawing = false;
+                let previousLongitude = null;
+                for (const point of data.track) {{
+                    const longitude = point[2];
+                    if (previousLongitude !== null && Math.abs(longitude - previousLongitude) > 180) drawing = false;
+                    const projected = project(longitude, point[1]);
+                    if (drawing) ctx.lineTo(projected[0], projected[1]);
+                    else {{ ctx.moveTo(projected[0], projected[1]); drawing = true; }}
+                    previousLongitude = longitude;
+                }}
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                const stationPoint = project(data.station[1], data.station[0]);
+                ctx.fillStyle = '#ffcc66';
+                ctx.shadowColor = 'rgba(255, 198, 92, 0.8)';
+                ctx.shadowBlur = 9 / zoom;
+                ctx.beginPath();
+                ctx.arc(stationPoint[0], stationPoint[1], 5 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                const now = Date.now();
+                let left = data.track[0];
+                let right = data.track[data.track.length - 1];
+                let low = 0, high = data.track.length - 1;
+                while (low <= high) {{
+                    const middle = (low + high) >> 1;
+                    if (data.track[middle][0] <= now) {{ left = data.track[middle]; low = middle + 1; }}
+                    else {{ right = data.track[middle]; high = middle - 1; }}
+                }}
+                const span = Math.max(1, right[0] - left[0]);
+                const fraction = Math.max(0, Math.min(1, (now - left[0]) / span));
+                let longitudeDelta = right[2] - left[2];
+                if (longitudeDelta > 180) longitudeDelta -= 360;
+                if (longitudeDelta < -180) longitudeDelta += 360;
+                let satelliteLongitude = left[2] + longitudeDelta * fraction;
+                if (satelliteLongitude > 180) satelliteLongitude -= 360;
+                if (satelliteLongitude < -180) satelliteLongitude += 360;
+                const satellitePoint = project(satelliteLongitude, left[1] + (right[1] - left[1]) * fraction);
+                ctx.fillStyle = 'rgba(255, 51, 102, 0.24)';
+                ctx.shadowColor = '#ff3366';
+                ctx.shadowBlur = 14 / zoom;
+                ctx.beginPath();
+                ctx.arc(satellitePoint[0], satellitePoint[1], 9 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ff6688';
+                ctx.beginPath();
+                ctx.moveTo(satellitePoint[0], satellitePoint[1] - 6 / zoom);
+                ctx.lineTo(satellitePoint[0] + 6 / zoom, satellitePoint[1]);
+                ctx.lineTo(satellitePoint[0], satellitePoint[1] + 6 / zoom);
+                ctx.lineTo(satellitePoint[0] - 6 / zoom, satellitePoint[1]);
+                ctx.closePath();
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.fillStyle = 'rgba(8, 19, 22, 0.86)';
+                ctx.fillRect(14, 14, 246, 82);
+                ctx.strokeStyle = 'rgba(113, 215, 193, 0.32)';
+                ctx.strokeRect(14, 14, 246, 82);
+                ctx.font = '12px DM Mono, monospace';
+                ctx.fillStyle = '#6ad8ff';
+                ctx.beginPath(); ctx.arc(26, 34, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#edf4ef';
+                ctx.fillText('GROUND TRACK', 36, 38);
+                ctx.fillStyle = '#ff6688';
+                ctx.beginPath(); ctx.arc(26, 58, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#edf4ef';
+                ctx.fillText('SATELLITE - ' + data.satelliteName, 36, 62);
+                ctx.fillStyle = '#ffcc66';
+                ctx.beginPath(); ctx.arc(26, 82, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#edf4ef';
+                ctx.fillText('GROUND STATION', 36, 86);
+            }}
+
+            function clampView() {{
+                const mapWidth = 1080 * mapScale;
+                const mapHeight = 540 * mapScale;
+                const minX = width - (mapOffsetX + mapWidth) * zoom;
+                const maxX = -mapOffsetX * zoom;
+                const minY = height - (mapOffsetY + mapHeight) * zoom;
+                const maxY = -mapOffsetY * zoom;
+                offsetX = mapWidth * zoom <= width ? (width - mapWidth * zoom) / 2 - mapOffsetX * zoom : Math.max(minX, Math.min(maxX, offsetX));
+                offsetY = mapHeight * zoom <= height ? (height - mapHeight * zoom) / 2 - mapOffsetY * zoom : Math.max(minY, Math.min(maxY, offsetY));
+            }}
+
+            function resize() {{
+                const bounds = stage.getBoundingClientRect();
+                dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+                width = Math.max(1, bounds.width);
+                height = Math.max(1, bounds.height);
+                mapScale = Math.min(width / 1080, height / 540);
+                mapOffsetX = (width - 1080 * mapScale) / 2;
+                mapOffsetY = (height - 540 * mapScale) / 2;
+                clampView();
+                canvas.width = Math.max(1, Math.round(bounds.width * dpr));
+                canvas.height = Math.max(1, Math.round(bounds.height * dpr));
+                drawBase();
+                draw();
+            }}
+
+            canvas.addEventListener('wheel', event => {{
+                event.preventDefault();
+                const bounds = canvas.getBoundingClientRect();
+                const x = event.clientX - bounds.left, y = event.clientY - bounds.top;
+                const nextZoom = Math.max(1, Math.min(8, zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15)));
+                if (nextZoom === 1) {{
+                    zoom = 1; offsetX = 0; offsetY = 0;
+                }} else {{
+                    offsetX = x - (x - offsetX) * (nextZoom / zoom);
+                    offsetY = y - (y - offsetY) * (nextZoom / zoom);
+                    zoom = nextZoom;
+                    clampView();
+                }}
+                draw();
+            }}, {{passive: false}});
+            new ResizeObserver(resize).observe(stage);
+            resize();
+            window.setInterval(draw, 1000);
+        </script>
+        """,
+        height=542,
+    )
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def build_globe_land_particles(radius_km):
     """Convierte la cartografía local en una textura de partículas 3D."""
@@ -812,10 +1179,13 @@ def build_globe_land_particles(radius_km):
     latitudes = surface["latitudes"]
     longitudes = surface["longitudes"]
     mask = surface["mask"] > 0.5
+    sampled_mask = mask.copy()
+    sampled_mask[::2, 1::2] = False
+    sampled_mask[1::2, ::2] = False
     lat_grid, lon_grid = np.meshgrid(latitudes, longitudes, indexing="ij")
 
-    land_latitudes = lat_grid[mask].astype(float)
-    land_longitudes = lon_grid[mask].astype(float)
+    land_latitudes = lat_grid[sampled_mask].astype(float)
+    land_longitudes = lon_grid[sampled_mask].astype(float)
 
     particle_x, particle_y, particle_z = latlon_to_cartesian(
         land_latitudes,
@@ -826,12 +1196,144 @@ def build_globe_land_particles(radius_km):
 
     return particle_x, particle_y, particle_z
 
+
+def build_satellite_hologram(name, group_name):
+    """Create a type-based hologram with a stable silhouette variant per satellite."""
+    normalized = name.upper()
+    seed = sum((index + 1) * ord(char) for index, char in enumerate(normalized))
+
+    if any(token in normalized for token in ("ISS", "ZARYA", "TIANGONG", "STATION", "CSS")):
+        kind = "Orbital station"
+    elif "STARLINK" in normalized or group_name == "starlink":
+        kind = "Starlink"
+    elif any(token in normalized for token in ("GPS", "NAVSTAR", "GALILEO", "GLONASS", "BEIDOU", "GNSS")):
+        kind = "Navigation satellite"
+    elif any(token in normalized for token in ("JWST", "WEBB", "HUBBLE", "TELESCOPE")):
+        kind = "Space observatory"
+    elif any(token in normalized for token in ("SENTINEL", "LANDSAT", "NOAA", "METOP", "GOES", "AQUA", "TERRA", "WEATHER")):
+        kind = "Earth observation"
+    elif any(token in normalized for token in ("CUBESAT", "CUBE", "LEMUR", "DOVE", "FLOCK", "SPIRE")):
+        kind = "CubeSat"
+    elif group_name == "geo":
+        kind = "Geostationary communications"
+    else:
+        kind = "Communications satellite"
+
+    accent = ("#72dcff", "#80f0d0", "#91bfff", "#6ee7ff")[seed % 4]
+    panel_width = 35 + seed % 17
+    panel_height = 30 + (seed // 3) % 15
+    columns = 3 + seed % 3
+    rows = 3 + (seed // 5) % 2
+    bus_width = 24 + seed % 11
+    bus_height = 22 + (seed // 7) % 10
+    x1, x2, cy = 160 - bus_width // 2, 160 + bus_width // 2, 63
+
+    def solar_array(x, y, width, height, col_count=columns, row_count=rows):
+        pieces = [
+            f'<path d="M{x} {y}h{width}v{height}h-{width}Z" fill="rgba(29,119,173,.22)" stroke="{accent}" stroke-width="1.2"/>'
+        ]
+        for column in range(1, col_count):
+            xx = x + width * column / col_count
+            pieces.append(f'<path d="M{xx:.1f} {y}v{height}" stroke="{accent}" stroke-opacity=".48" stroke-width=".65"/>')
+        for row in range(1, row_count):
+            yy = y + height * row / row_count
+            pieces.append(f'<path d="M{x} {yy:.1f}h{width}" stroke="{accent}" stroke-opacity=".42" stroke-width=".65"/>')
+        return "".join(pieces)
+
+    bus = (
+        f'<path d="M{x1} {cy - bus_height // 2}l{bus_width // 2} -7 {bus_width // 2} 7v{bus_height}l-{bus_width // 2} 7-{bus_width // 2} -7Z" '
+        f'fill="rgba(30,125,171,.38)" stroke="{accent}" stroke-width="1.5"/>'
+        f'<path d="M160 {cy - bus_height // 2}v{bus_height}m-7 -{bus_height // 2 + 3}h14m-14 {bus_height - 4}h14" stroke="{accent}" stroke-opacity=".62" stroke-width=".8"/>'
+    )
+    left_x = x1 - panel_width - 9
+    right_x = x2 + 9
+
+    if kind == "Starlink":
+        # Starlink spacecraft have a compact, flat bus and one broad solar array.
+        array_x = x2 + 9 if seed % 2 else x1 - panel_width - 9
+        body = (
+            solar_array(array_x, cy - panel_height // 2, panel_width, panel_height)
+            + f'<path d="M{x1} {cy - 8}h{bus_width}v16h-{bus_width}Z" fill="rgba(30,125,171,.5)" stroke="{accent}" stroke-width="1.4"/>'
+            + f'<path d="M160 {cy - 8}v16m-8 -8h16M{160 + (1 if seed % 3 else -1) * 23} {cy - 3}q13 -10 20 0-7 10-20 0Z" stroke="{accent}" fill="rgba(90,220,255,.17)" stroke-width="1"/>'
+        )
+    elif kind == "Orbital station":
+        body = (
+            solar_array(left_x, 42, panel_width, 38, max(columns, 4), 4)
+            + solar_array(right_x, 42, panel_width, 38, max(columns, 4), 4)
+            + f'<path d="M92 {cy}h{ x1 - 92 }m{ x2 - x1 } 0h{ 228 - x2 }M160 36v54" stroke="{accent}" stroke-width="2"/>'
+            + bus
+            + f'<rect x="146" y="{cy - 5}" width="28" height="10" rx="4" fill="rgba(112,220,255,.2)" stroke="{accent}"/>'
+        )
+    elif kind == "Space observatory":
+        mirror_size = 10 + seed % 4
+        body = (
+            solar_array(left_x, 47, panel_width, 32)
+            + solar_array(right_x, 47, panel_width, 32)
+            + bus
+            + f'<path d="M160 {cy + bus_height // 2}v18l-10 8h20l-10-8m0-18v-22" stroke="{accent}" stroke-width="1.3"/>'
+            + f'<circle cx="160" cy="{cy + bus_height // 2 + 25}" r="{mirror_size}" fill="rgba(255,206,105,.22)" stroke="#ffd477" stroke-width="1.5"/>'
+            + f'<path d="M160 {cy + bus_height // 2 + 25 - mirror_size}v{mirror_size * 2}m-{mirror_size} -{mirror_size}h{mirror_size * 2}" stroke="#ffd477" stroke-opacity=".65" stroke-width=".7"/>'
+        )
+    elif kind == "Navigation satellite":
+        body = (
+            solar_array(left_x, 45, panel_width, 36)
+            + solar_array(right_x, 45, panel_width, 36)
+            + bus
+            + f'<path d="M160 47V28m0 56v18m-13-39h-16m45 0h16" stroke="{accent}" stroke-width="1.2"/>'
+            + f'<circle cx="160" cy="26" r="5" fill="rgba(112,220,255,.28)" stroke="{accent}"/><circle cx="160" cy="104" r="4" fill="rgba(112,220,255,.24)" stroke="{accent}"/>'
+        )
+    elif kind == "Earth observation":
+        body = (
+            solar_array(left_x, 45, panel_width, 37)
+            + solar_array(right_x, 45, panel_width, 37)
+            + bus
+            + f'<path d="M160 {cy + bus_height // 2}v21l-7 8h14l-7-8m-4-5h8" stroke="{accent}" stroke-width="1.3"/>'
+            + f'<circle cx="160" cy="{cy + bus_height // 2 + 25}" r="5" fill="rgba(115,231,255,.3)" stroke="{accent}"/>'
+        )
+    elif kind == "CubeSat":
+        size = 26 + seed % 8
+        body = (
+            solar_array(160 - size // 2 - panel_width - 5, 52, panel_width // 2, 24, 2, 2)
+            + solar_array(160 + size // 2 + 5, 52, panel_width // 2, 24, 2, 2)
+            + f'<path d="M{160-size//2} {cy-size//2}l{size//2} -6 {size//2} 6v{size}l-{size//2} 6-{size//2} -6Z" fill="rgba(30,125,171,.42)" stroke="{accent}" stroke-width="1.5"/>'
+            + f'<path d="M160 {cy-size//2}v{size}m-6 -{size//2+2}h12m-12 {size-4}h12M160 {cy-size//2}V27" stroke="{accent}" stroke-width="1"/>'
+            + f'<circle cx="160" cy="25" r="2.5" fill="{accent}"/>'
+        )
+    else:
+        dish_x = 160 + (1 if seed % 2 else -1) * (bus_width // 2 + 16)
+        body = (
+            solar_array(left_x, 45, panel_width, 37)
+            + solar_array(right_x, 45, panel_width, 37)
+            + bus
+            + f'<path d="M{dish_x} {cy - 3}q{12 if dish_x < 160 else -12} -16 {22 if dish_x < 160 else -22} -12q-4 14-22 12Z" fill="rgba(112,220,255,.18)" stroke="{accent}" stroke-width="1.2"/>'
+            + f'<path d="M160 43V27l-10-7m10 7 10-7" stroke="{accent}" stroke-width="1.1"/>'
+        )
+
+    model_svg = (
+        f'<svg class="satellite-holo-svg" viewBox="0 0 320 126" role="img" aria-hidden="true">'
+        f'<g class="satellite-holo-model" fill="none" stroke-linejoin="round" stroke-linecap="round">{body}</g></svg>'
+    )
+    return kind, model_svg
+
 try:
     with st.spinner("🛰️ Descargando telemetría TLE de CelesTrak..."):
         sat_list = load_satellites(group)
     sat_names = [s["name"] for s in sat_list]
     default_idx = sat_names.index("ISS (ZARYA)") if "ISS (ZARYA)" in sat_names else 0
     selected_name = st.sidebar.selectbox("Satélite", sat_names, index=default_idx)
+
+    hologram_type, hologram_svg = build_satellite_hologram(selected_name, group)
+    st.sidebar.markdown(f"""
+    <div class="satellite-holo-card" aria-label="Vista holografica del satelite seleccionado">
+        <div class="satellite-holo-heading"><span>{escape(hologram_type)}</span><span class="satellite-holo-state">3D / LIVE</span></div>
+        <div class="satellite-holo-viewport">
+            <div class="satellite-holo-orbit"></div>
+            {hologram_svg}
+            <div class="satellite-holo-scan"></div>
+        </div>
+        <div class="satellite-holo-name"><i class="satellite-holo-dot"></i><span>{escape(selected_name)}</span></div>
+    </div>
+    """, unsafe_allow_html=True)
 
     tle_data = next(s for s in sat_list if s["name"] == selected_name)
 
@@ -1105,276 +1607,32 @@ try:
             50,
         )
 
-    plotly_layout_dark = dict(
-        template="plotly_dark",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=10, r=10, t=20, b=10)
-    )
-
-    tracker_header_slot = st.empty()
-    tracker_metrics_slot = st.empty()
     if selected_tab == "Tracker 2D":
         tracker_header_slot = st.empty()
         tracker_metrics_slot = st.empty()
-        map_frame = st.container(height=542, border=True)
+        tracker_header_slot.markdown("##### TELEMETRY - LIVE GROUND TRACK 2D")
+        with tracker_metrics_slot.container():
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Latitud sub-satelite", f"{state['latitude']:.4f}º")
+            col2.metric("Longitud sub-satelite", f"{state['longitude']:.4f}º")
+            col3.metric("Altitud Orbital", f"{state['altitude_km']:.2f} km")
+            col4.metric("Velocidad Orbital", f"{state['speed_km_s']:.2f} km/s")
 
-        static_map = go.Figure()
-        static_map.add_trace(go.Scattergeo(
-            lon=ground_track["longitude"], lat=ground_track["latitude"],
-            mode="lines", line=dict(width=2.5, color="#6ad8ff"), name="Ground Track"
-        ))
-        static_map.add_trace(go.Scattergeo(
-            lon=[state["longitude"]], lat=[state["latitude"]],
-            mode="markers+text", marker=dict(size=12, color="#ff3366", symbol="diamond"),
-            text=[f" <b>{state['name']}</b>"], textposition="top center", name="Satélite"
-        ))
-        static_map.add_trace(go.Scattergeo(
-            lon=[gs_lon], lat=[gs_lat],
-            mode="markers+text", marker=dict(size=12, color="#ffcc00", symbol="star"),
-            text=[" <b>Estación Terrestre</b>"], textposition="bottom center", name="Ground Station"
-        ))
-        static_map.update_layout(
-            **{**plotly_layout_dark, "margin": dict(l=0, r=0, t=0, b=0, pad=0)},
-            legend=dict(
-                orientation="h",
-                x=0.015,
-                y=0.985,
-                xanchor="left",
-                yanchor="top",
-                bgcolor="rgba(8, 19, 22, 0.78)",
-                bordercolor="rgba(113, 215, 193, 0.32)",
-                borderwidth=1,
-                font=dict(color="#edf4ef", size=11),
-            ),
-            geo=dict(
-                showland=True, landcolor="rgb(13, 32, 49)",
-                showocean=True, oceancolor="rgb(4, 12, 20)",
-                fitbounds=False,
-                projection=dict(type="equirectangular", scale=1, minscale=1),
-                bgcolor="rgba(0,0,0,0)",
-                coastlinecolor="rgba(102, 196, 255, 0.42)",
-                uirevision=f"tracker-2d-{state['name']}"
-            ),
-            width=1080,
-            height=540
-        )
-        map_frame.plotly_chart(
-            static_map,
-            use_container_width=False,
-            config={
-                "scrollZoom": True,
-                "responsive": False,
-                "displaylogo": False,
-            },
-            key="tracker-map",
-        )
+        map_frame = st.container(height=542, border=True)
+        with map_frame:
+            render_tracker_map(ground_track, state, gs_lat, gs_lon)
 
         @st.fragment(run_every="10s")
-        def refresh_tracker_data():
+        def refresh_tracker_metrics():
             live_state = propagator.get_current_state()
-            tracker_header_slot.markdown('##### TELEMETRÍA EN TIEMPO REAL (GROUND TRACK 2D)')
             with tracker_metrics_slot.container():
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Latitud Sub-satélite", f"{live_state['latitude']:.4f}°")
-                col2.metric("Longitud Sub-satélite", f"{live_state['longitude']:.4f}°")
+                col1.metric("Latitud sub-satelite", f"{live_state['latitude']:.4f}º")
+                col2.metric("Longitud sub-satelite", f"{live_state['longitude']:.4f}º")
                 col3.metric("Altitud Orbital", f"{live_state['altitude_km']:.2f} km")
                 col4.metric("Velocidad Orbital", f"{live_state['speed_km_s']:.2f} km/s")
 
-            st.components.v1.html(
-                f"""
-                <script>
-                    (() => {{
-                        const plot = window.parent.document.querySelector(
-                            '[data-testid="stPlotlyChart"] .js-plotly-plot'
-                        );
-                        if (!plot || !window.parent.Plotly) return;
-                        window.parent.Plotly.restyle(plot, {{
-                            lon: [[{live_state['longitude']}]],
-                            lat: [[{live_state['latitude']}]],
-                            text: [[" <b>{live_state['name']}</b>"]]
-                        }}, [1]);
-
-                        if (plot.dataset.satlinkZoomGuard !== "true") {{
-                            const geo = plot._fullLayout && plot._fullLayout.geo;
-                            const initialLonRange = geo?.lonaxis?.range?.slice();
-                            const initialLatRange = geo?.lataxis?.range?.slice();
-                            if (initialLonRange && initialLatRange) {{
-                                const clampRange = (range, initialRange) => {{
-                                    const initialSpan = initialRange[1] - initialRange[0];
-                                    const currentSpan = range[1] - range[0];
-                                    if (currentSpan <= initialSpan) return range;
-
-                                    const center = (range[0] + range[1]) / 2;
-                                    return [
-                                        center - initialSpan / 2,
-                                        center + initialSpan / 2,
-                                    ];
-                                }};
-
-                                plot.on("plotly_relayout", () => {{
-                                    const currentGeo = plot._fullLayout && plot._fullLayout.geo;
-                                    const corrections = {{}};
-                                    const projectionScale = currentGeo?.projection?.scale;
-                                    const lonRange = currentGeo?.lonaxis?.range;
-                                    const latRange = currentGeo?.lataxis?.range;
-
-                                    if (typeof projectionScale === "number" && projectionScale < 1) {{
-                                        corrections["geo.projection.scale"] = 1;
-                                    }}
-
-                                    if (lonRange) {{
-                                        const clampedLonRange = clampRange(lonRange, initialLonRange);
-                                        if (clampedLonRange !== lonRange) {{
-                                            corrections["geo.lonaxis.range"] = clampedLonRange;
-                                        }}
-                                    }}
-                                    if (latRange) {{
-                                        const clampedLatRange = clampRange(latRange, initialLatRange);
-                                        if (clampedLatRange !== latRange) {{
-                                            corrections["geo.lataxis.range"] = clampedLatRange;
-                                        }}
-                                    }}
-
-                                    if (Object.keys(corrections).length) {{
-                                        window.parent.Plotly.relayout(plot, corrections);
-                                    }}
-                                }});
-                                plot.dataset.satlinkZoomGuard = "true";
-                            }}
-                        }}
-                    }})();
-                </script>
-                """,
-                height=1,
-            )
-
-        refresh_tracker_data()
-        st.stop()
-
-    @st.fragment(run_every="10s")
-    def render_live_tracker():
-        live_state = propagator.get_current_state()
-        live_ground_track = propagator.get_ground_track(minutes_past=50, minutes_future=50)
-
-        tracker_header_slot.markdown('##### TELEMETRÍA EN TIEMPO REAL (GROUND TRACK 2D)')
-        with tracker_metrics_slot.container():
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Latitud Sub-satélite", f"{live_state['latitude']:.4f}°")
-            col2.metric("Longitud Sub-satélite", f"{live_state['longitude']:.4f}°")
-            col3.metric("Altitud Orbital", f"{live_state['altitude_km']:.2f} km")
-            col4.metric("Velocidad Orbital", f"{live_state['speed_km_s']:.2f} km/s")
-
-        fig_map = go.Figure()
-        fig_map.add_trace(go.Scattergeo(
-            lon=live_ground_track["longitude"], lat=live_ground_track["latitude"],
-            mode="lines", line=dict(width=2.5, color="#00f3ff"), name="Ground Track"
-        ))
-        fig_map.add_trace(go.Scattergeo(
-            lon=[live_state["longitude"]], lat=[live_state["latitude"]],
-            mode="markers+text", marker=dict(size=12, color="#ff3366", symbol="diamond"),
-            text=[f" <b>{live_state['name']}</b>"], textposition="top center", name="Satélite"
-        ))
-        fig_map.add_trace(go.Scattergeo(
-            lon=[gs_lon], lat=[gs_lat],
-            mode="markers+text", marker=dict(size=12, color="#ffcc00", symbol="star"),
-            text=[" <b>Estación Terrestre</b>"], textposition="bottom center", name="Ground Station"
-        ))
-        fig_map.update_layout(
-            **plotly_layout_dark,
-            geo=dict(
-                showland=True, landcolor="rgb(15, 23, 42)",
-                showocean=True, oceancolor="rgb(6, 10, 20)",
-                projection_type="equirectangular",
-                bgcolor="rgba(0,0,0,0)",
-                coastlinecolor="rgba(0, 243, 255, 0.3)",
-                uirevision=f"tracker-2d-{live_state['name']}"
-            ),
-            width=1080,
-            height=540,
-            uirevision=f"tracker-2d-{live_state['name']}"
-        )
-        map_frame.plotly_chart(
-            fig_map,
-            use_container_width=False,
-            config={
-                "scrollZoom": True,
-                "responsive": False,
-                "displaylogo": False,
-            },
-            key="tracker-map",
-        )
-
-        st.components.v1.html(
-            """
-            <script>
-                (() => {
-                    const storageKey = "satlink-tracker-map-view";
-
-                    function installMapViewPersistence() {
-                        let plot;
-                        try {
-                            plot = window.parent.document.querySelector(
-                                '[data-testid="stPlotlyChart"] .js-plotly-plot'
-                            );
-                        } catch {
-                            return false;
-                        }
-                        if (!plot || !window.parent.Plotly) return false;
-                        if (plot.dataset.satlinkViewPersistence === "true") return true;
-
-                        plot.style.opacity = "0";
-                        plot.style.transition = "none";
-                        const revealMap = () => {
-                            plot.style.opacity = "1";
-                        };
-
-                        const savedView = window.parent.sessionStorage.getItem(storageKey);
-                        if (savedView) {
-                            try {
-                                const restoreOperation = window.parent.Plotly.relayout(plot, JSON.parse(savedView));
-                                if (restoreOperation && restoreOperation.then) {
-                                    restoreOperation.then(revealMap, revealMap);
-                                } else {
-                                    revealMap();
-                                }
-                            } catch {
-                                window.parent.sessionStorage.removeItem(storageKey);
-                                revealMap();
-                            }
-                        } else {
-                            revealMap();
-                        }
-
-                        plot.on("plotly_relayout", (eventData) => {
-                            const viewData = {};
-                            Object.entries(eventData).forEach(([key, value]) => {
-                                if (key.startsWith("geo.")) viewData[key] = value;
-                            });
-                            if (Object.keys(viewData).length > 0) {
-                                window.parent.sessionStorage.setItem(storageKey, JSON.stringify(viewData));
-                            }
-                        });
-                        plot.dataset.satlinkViewPersistence = "true";
-                        return true;
-                    }
-
-                    const parentDocument = window.parent.document;
-                    new MutationObserver(installMapViewPersistence).observe(parentDocument.body, {
-                        childList: true,
-                        subtree: true
-                    });
-                    installMapViewPersistence();
-                    window.setTimeout(installMapViewPersistence, 200);
-                    window.setTimeout(installMapViewPersistence, 800);
-                })();
-            </script>
-            """,
-            height=1,
-        )
-
-    if selected_tab == "Tracker 2D":
-        render_live_tracker()
+        refresh_tracker_metrics()
         st.stop()
 
     # TAB 2: GLOBO 3D
@@ -1387,13 +1645,49 @@ try:
             float(EARTH_RADIUS_KM)
         )
         globe_points = np.column_stack([particle_x, particle_y, particle_z])
+        orbit_x, orbit_y, orbit_z = latlon_to_cartesian(
+            ground_track["latitude"].to_numpy(),
+            ground_track["longitude"].to_numpy(),
+            ground_track["altitude_km"].to_numpy(),
+            r_earth=EARTH_RADIUS_KM,
+        )
+        satellite_x, satellite_y, satellite_z = latlon_to_cartesian(
+            state["latitude"],
+            state["longitude"],
+            state["altitude_km"],
+            r_earth=EARTH_RADIUS_KM,
+        )
+        land_vectors = np.asarray(globe_points)
+        land_vectors /= np.linalg.norm(land_vectors, axis=1, keepdims=True)
         globe_payload = {
-            "land": np.asarray(globe_points).tolist(),
+            "land": np.round(land_vectors, decimals=6).ravel().tolist(),
+            "orbit": np.column_stack([orbit_x, orbit_y, orbit_z]).tolist(),
+            "satellite": [float(satellite_x), float(satellite_y), float(satellite_z)],
+            "earthRadius": float(EARTH_RADIUS_KM),
         }
 
         st.components.v1.html(
             f"""
-            <div id="satlink-globe-stage" style="width:100%; height:620px; border:1px solid rgba(62, 171, 255, 0.24); border-radius:8px; background:#020b19; overflow:hidden; position:relative; box-shadow:inset 0 0 40px rgba(0, 101, 202, 0.08), 0 0 30px rgba(0, 106, 255, 0.08);">
+            <style>
+                html, body {{
+                    width: 100%;
+                    height: 100%;
+                    margin: 0;
+                    overflow: hidden;
+                }}
+                #satlink-globe-stage {{
+                    box-sizing: border-box;
+                    width: 100%;
+                    height: 100%;
+                    border: 1px solid rgba(62, 171, 255, 0.24);
+                    border-radius: 8px;
+                    background: #020b19;
+                    overflow: hidden;
+                    position: relative;
+                    box-shadow: inset 0 0 40px rgba(0, 101, 202, 0.08), 0 0 30px rgba(0, 106, 255, 0.08);
+                }}
+            </style>
+            <div id="satlink-globe-stage">
                 <canvas id="satlink-globe-canvas" style="display:block; width:100%; height:100%; touch-action:none; cursor:grab;"></canvas>
             </div>
             <script>
@@ -1401,6 +1695,13 @@ try:
                 const stage = document.getElementById('satlink-globe-stage');
                 const canvas = document.getElementById('satlink-globe-canvas');
                 const ctx = canvas.getContext('2d', {{alpha: false}});
+                const landBinCapacity = payload.land.length;
+                const landBinCoordinates = [
+                    new Float32Array(landBinCapacity),
+                    new Float32Array(landBinCapacity),
+                    new Float32Array(landBinCapacity),
+                ];
+                const landBinCounts = [0, 0, 0];
                 let w = 0;
                 let h = 0;
                 let cx = 0;
@@ -1423,10 +1724,29 @@ try:
                         alpha: 0.12 + (i % 5) * 0.045,
                     }};
                 }});
+                const graticuleLines = [];
+                for (let latitude = -60; latitude <= 60; latitude += 30) {{
+                    const lat = latitude * Math.PI / 180;
+                    const points = [];
+                    for (let longitude = -180; longitude <= 180; longitude += 3) {{
+                        const lon = longitude * Math.PI / 180;
+                        points.push([Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]);
+                    }}
+                    graticuleLines.push(points);
+                }}
+                for (let longitude = -180; longitude < 180; longitude += 30) {{
+                    const lon = longitude * Math.PI / 180;
+                    const points = [];
+                    for (let latitude = -88; latitude <= 88; latitude += 3) {{
+                        const lat = latitude * Math.PI / 180;
+                        points.push([Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]);
+                    }}
+                    graticuleLines.push(points);
+                }}
 
                 function resizeCanvas() {{
                     const bounds = stage.getBoundingClientRect();
-                    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
                     w = Math.max(1, bounds.width);
                     h = Math.max(1, bounds.height);
                     canvas.width = Math.round(w * dpr);
@@ -1470,18 +1790,16 @@ try:
                     }}
                     ctx.strokeStyle = 'rgba(63, 133, 205, 0.045)';
                     ctx.lineWidth = 1;
+                    ctx.beginPath();
                     for (let x = 0; x < w; x += 36) {{
-                        ctx.beginPath();
                         ctx.moveTo(x, 0);
                         ctx.lineTo(x, h);
-                        ctx.stroke();
                     }}
                     for (let y = 0; y < h; y += 36) {{
-                        ctx.beginPath();
                         ctx.moveTo(0, y);
                         ctx.lineTo(w, y);
-                        ctx.stroke();
                     }}
+                    ctx.stroke();
                 }}
 
                 function drawSphere() {{
@@ -1509,17 +1827,19 @@ try:
                 }}
 
                 function drawGraticule(cosLongitude, sinLongitude, cosTilt, sinTilt) {{
+                    const detailStride = dragging ? 2 : 1;
                     ctx.save();
                     ctx.beginPath();
                     ctx.arc(cx, cy, radius * 0.998, 0, Math.PI * 2);
                     ctx.clip();
                     ctx.lineWidth = 0.7;
                     ctx.strokeStyle = 'rgba(74, 190, 255, 0.22)';
+                    ctx.beginPath();
 
                     function traceLine(points) {{
                         let drawing = false;
-                        ctx.beginPath();
-                        for (const point of points) {{
+                        for (let index = 0; index < points.length; index += detailStride) {{
+                            const point = points[index];
                             const p = rotatePoint(point[0], point[1], point[2], cosLongitude, sinLongitude, cosTilt, sinTilt);
                             if (p.depth <= 0) {{
                                 drawing = false;
@@ -1533,40 +1853,33 @@ try:
                                 ctx.lineTo(q.x, q.y);
                             }}
                         }}
-                        ctx.stroke();
                     }}
 
-                    for (let latitude = -60; latitude <= 60; latitude += 30) {{
-                        const lat = latitude * Math.PI / 180;
-                        const points = [];
-                        for (let longitude = -180; longitude <= 180; longitude += 3) {{
-                            const lon = longitude * Math.PI / 180;
-                            points.push([Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]);
-                        }}
-                        traceLine(points);
+                    for (let index = 0; index < graticuleLines.length; index += detailStride) {{
+                        traceLine(graticuleLines[index]);
                     }}
-                    for (let longitude = -180; longitude < 180; longitude += 30) {{
-                        const lon = longitude * Math.PI / 180;
-                        const points = [];
-                        for (let latitude = -88; latitude <= 88; latitude += 3) {{
-                            const lat = latitude * Math.PI / 180;
-                            points.push([Math.cos(lat) * Math.cos(lon), Math.cos(lat) * Math.sin(lon), Math.sin(lat)]);
-                        }}
-                        traceLine(points);
-                    }}
+                    ctx.stroke();
                     ctx.restore();
                 }}
 
                 function drawLand(cosLongitude, sinLongitude, cosTilt, sinTilt) {{
-                    const depthBins = [[], [], []];
-                    for (const point of payload.land) {{
-                        const magnitude = Math.hypot(point[0], point[1], point[2]) || 1;
-                        const p = rotatePoint(
-                            point[0] / magnitude, point[1] / magnitude, point[2] / magnitude,
-                            cosLongitude, sinLongitude, cosTilt, sinTilt
-                        );
-                        if (p.depth <= 0) continue;
-                        depthBins[Math.min(2, Math.floor(p.depth * 3))].push(p);
+                    landBinCounts.fill(0);
+                    for (let index = 0; index < payload.land.length; index += 3) {{
+                        const x = payload.land[index];
+                        const y = payload.land[index + 1];
+                        const z = payload.land[index + 2];
+                        const rotatedX = x * cosLongitude - y * sinLongitude;
+                        const rotatedY = x * sinLongitude + y * cosLongitude;
+                        const depth = rotatedY * sinTilt + z * cosTilt;
+                        if (depth <= 0) continue;
+
+                        const bin = Math.min(2, Math.floor(depth * 3));
+                        const binIndex = landBinCounts[bin];
+                        const coordinates = landBinCoordinates[bin];
+                        coordinates[binIndex] = cx + rotatedX * radius;
+                        coordinates[binIndex + 1] = cy - (rotatedY * cosTilt - z * sinTilt) * radius;
+                        coordinates[binIndex + 2] = 0.72 + depth * 1.12;
+                        landBinCounts[bin] += 3;
                     }}
 
                     ctx.save();
@@ -1579,27 +1892,32 @@ try:
                         'rgba(38, 166, 255, 0.86)',
                         'rgba(126, 232, 255, 1)',
                     ];
-                    for (let bin = 0; bin < depthBins.length; bin += 1) {{
+                    for (let bin = 0; bin < landBinCoordinates.length; bin += 1) {{
+                        const coordinates = landBinCoordinates[bin];
+                        const count = landBinCounts[bin];
                         ctx.beginPath();
-                        for (const p of depthBins[bin]) {{
-                            const q = project(p.x, p.y, p.depth);
-                            const size = 0.72 + p.depth * 1.12;
-                            const haloSize = size * 2.1;
-                            ctx.moveTo(q.x + haloSize, q.y);
-                            ctx.arc(q.x, q.y, haloSize, 0, Math.PI * 2);
+                        for (let index = 0; index < count; index += 3) {{
+                            const x = coordinates[index];
+                            const y = coordinates[index + 1];
+                            const haloSize = coordinates[index + 2] * 2.1;
+                            if (haloSize > 2) {{
+                                ctx.rect(x - haloSize, y - haloSize, haloSize * 2, haloSize * 2);
+                            }} else {{
+                                ctx.moveTo(x + haloSize, y);
+                                ctx.arc(x, y, haloSize, 0, Math.PI * 2);
+                            }}
                         }}
                         ctx.fillStyle = 'rgba(0, 153, 255, 0.18)';
-                        ctx.shadowColor = 'rgba(0, 170, 255, 0.82)';
-                        ctx.shadowBlur = 7;
                         ctx.fill();
 
                         ctx.shadowBlur = 0;
                         ctx.beginPath();
-                        for (const p of depthBins[bin]) {{
-                            const q = project(p.x, p.y, p.depth);
-                            const size = 0.72 + p.depth * 1.12;
-                            ctx.moveTo(q.x + size, q.y);
-                            ctx.arc(q.x, q.y, size, 0, Math.PI * 2);
+                        for (let index = 0; index < count; index += 3) {{
+                            const x = coordinates[index];
+                            const y = coordinates[index + 1];
+                            const size = coordinates[index + 2];
+                            ctx.moveTo(x + size, y);
+                            ctx.arc(x, y, size, 0, Math.PI * 2);
                         }}
                         ctx.fillStyle = colors[bin];
                         ctx.fill();
@@ -1608,7 +1926,176 @@ try:
                     ctx.restore();
                 }}
 
+                function drawOrbit(cosLongitude, sinLongitude, cosTilt, sinTilt) {{
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'screen';
+                    const orbitPaths = {{front: [], rear: []}};
+                    let currentPath = null;
+                    let currentSide = null;
+                    let previous = null;
+
+                    function rotateOrbitPoint(point) {{
+                        return rotatePoint(
+                            point[0] / payload.earthRadius,
+                            point[1] / payload.earthRadius,
+                            point[2] / payload.earthRadius,
+                            cosLongitude, sinLongitude, cosTilt, sinTilt
+                        );
+                    }}
+
+                    function isOccluded(point) {{
+                        return point.depth < 0 && Math.hypot(point.x, point.y) < 1;
+                    }}
+
+                    function interpolatePoint(start, end, amount) {{
+                        return rotateOrbitPoint([
+                            start[0] + (end[0] - start[0]) * amount,
+                            start[1] + (end[1] - start[1]) * amount,
+                            start[2] + (end[2] - start[2]) * amount,
+                        ]);
+                    }}
+
+                    function findBoundary(start, end, occlusionBoundary) {{
+                        let low = 0;
+                        let high = 1;
+                        const startPoint = rotateOrbitPoint(start);
+                        const startIsBoundarySide = occlusionBoundary
+                            ? isOccluded(startPoint)
+                            : startPoint.depth < 0;
+                        for (let iteration = 0; iteration < 24; iteration += 1) {{
+                            const middle = (low + high) / 2;
+                            const point = interpolatePoint(start, end, middle);
+                            const isBoundarySide = occlusionBoundary
+                                ? isOccluded(point)
+                                : point.depth < 0;
+                            if (isBoundarySide === startIsBoundarySide) {{
+                                low = middle;
+                            }} else {{
+                                high = middle;
+                            }}
+                        }}
+                        return interpolatePoint(start, end, (low + high) / 2);
+                    }}
+
+                    function addPoint(point) {{
+                        const side = point.depth < 0 ? 'rear' : 'front';
+                        if (!currentPath || currentSide !== side) {{
+                            currentPath = [];
+                            orbitPaths[side].push(currentPath);
+                            currentSide = side;
+                        }}
+                        currentPath.push(project(point.x, point.y, point.depth));
+                    }}
+
+                    function finishPath() {{
+                        currentPath = null;
+                        currentSide = null;
+                    }}
+
+                    function processPoint(point, source) {{
+                        if (!previous) {{
+                            if (!isOccluded(point)) addPoint(point);
+                            previous = {{point, source}};
+                            return;
+                        }}
+
+                        const wasOccluded = isOccluded(previous.point);
+                        const nowOccluded = isOccluded(point);
+                        const previousIsRear = previous.point.depth < 0;
+                        const nowIsRear = point.depth < 0;
+
+                        if (!wasOccluded && !nowOccluded && previousIsRear !== nowIsRear) {{
+                            const boundary = findBoundary(previous.source, source, false);
+                            if (currentPath) {{
+                                currentPath.push(project(boundary.x, boundary.y, boundary.depth));
+                            }}
+                            finishPath();
+                            addPoint(boundary);
+                            addPoint(point);
+                        }} else if (!wasOccluded && nowOccluded) {{
+                            const boundary = findBoundary(previous.source, source, true);
+                            if (currentPath) {{
+                                currentPath.push(project(boundary.x, boundary.y, boundary.depth));
+                            }}
+                            finishPath();
+                        }} else if (wasOccluded && !nowOccluded) {{
+                            const boundary = findBoundary(previous.source, source, true);
+                            addPoint(boundary);
+                            addPoint(point);
+                        }} else if (!nowOccluded) {{
+                            addPoint(point);
+                        }} else {{
+                            finishPath();
+                        }}
+
+                        previous = {{point, source}};
+                    }}
+
+                    for (let index = 0; index < payload.orbit.length - 1; index += 1) {{
+                        const start = payload.orbit[index];
+                        const end = payload.orbit[index + 1];
+                        const subdivisions = dragging ? 2 : 8;
+                        for (let step = 0; step <= subdivisions; step += 1) {{
+                            if (index > 0 && step === 0) continue;
+                            const amount = step / subdivisions;
+                            const source = [
+                                start[0] + (end[0] - start[0]) * amount,
+                                start[1] + (end[1] - start[1]) * amount,
+                                start[2] + (end[2] - start[2]) * amount,
+                            ];
+                            processPoint(rotateOrbitPoint(source), source);
+                        }}
+                    }}
+
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = 'rgba(30, 176, 255, 0.92)';
+                    ctx.shadowColor = 'rgba(0, 174, 255, 0.96)';
+                    ctx.shadowBlur = 13;
+                    for (const side of ['rear', 'front']) {{
+                        for (const path of orbitPaths[side]) {{
+                            if (path.length < 2) continue;
+                            ctx.beginPath();
+                            ctx.moveTo(path[0].x, path[0].y);
+                            for (let index = 1; index < path.length; index += 1) {{
+                                ctx.lineTo(path[index].x, path[index].y);
+                            }}
+                            ctx.stroke();
+                        }}
+                    }}
+                    ctx.shadowBlur = 0;
+
+                    const point = payload.satellite;
+                    const p = rotatePoint(
+                        point[0] / payload.earthRadius,
+                        point[1] / payload.earthRadius,
+                        point[2] / payload.earthRadius,
+                        cosLongitude, sinLongitude, cosTilt, sinTilt
+                    );
+                    if (!isOccluded(p)) {{
+                        const q = project(p.x, p.y, p.depth);
+                        ctx.beginPath();
+                        ctx.arc(q.x, q.y, 7, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(35, 174, 255, 0.3)';
+                        ctx.shadowColor = '#35c7ff';
+                        ctx.shadowBlur = 16;
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(q.x, q.y, 3.4, 0, Math.PI * 2);
+                        ctx.fillStyle = '#e8fbff';
+                        ctx.shadowBlur = 8;
+                        ctx.fill();
+                    }}
+                    ctx.restore();
+                }}
+
                 function render(timestamp) {{
+                    const frameInterval = dragging ? 0 : 30;
+                    if (previousFrame && timestamp - previousFrame < frameInterval) {{
+                        if (!reducedMotion) window.requestAnimationFrame(render);
+                        return;
+                    }}
                     if (previousFrame && !dragging && !reducedMotion && timestamp - previousFrame > 32) {{
                         cameraLongitude += 0.000045 * (timestamp - previousFrame);
                     }}
@@ -1622,6 +2109,7 @@ try:
                     drawSphere();
                     drawGraticule(cosLongitude, sinLongitude, cosTilt, sinTilt);
                     drawLand(cosLongitude, sinLongitude, cosTilt, sinTilt);
+                    drawOrbit(cosLongitude, sinLongitude, cosTilt, sinTilt);
 
                     const atmosphere = ctx.createRadialGradient(
                         cx - radius * 0.35, cy - radius * 0.4, radius * 0.68,
@@ -1663,10 +2151,14 @@ try:
                 canvas.addEventListener('pointerup', () => {{
                     dragging = false;
                     canvas.style.cursor = 'grab';
+                    previousFrame = 0;
+                    if (reducedMotion) render(performance.now());
                 }});
                 canvas.addEventListener('pointercancel', () => {{
                     dragging = false;
                     canvas.style.cursor = 'grab';
+                    previousFrame = 0;
+                    if (reducedMotion) render(performance.now());
                 }});
                 new ResizeObserver(() => {{
                     resizeCanvas();
@@ -1689,7 +2181,35 @@ try:
                 "LOS (UTC)": p["los_time"].strftime("%H:%M:%S"),
                 "Duración": f"{int(p['duration_seconds'] // 60)}m {int(p['duration_seconds'] % 60)}s"
             } for p in passes]
-            st.dataframe(pd.DataFrame(table_data), use_container_width=True)
+            rows_html = "".join(
+                "<tr{}><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
+                    " class='next-pass'" if index == 0 else "",
+                    *(escape(str(value)) for value in row.values()),
+                )
+                for index, row in enumerate(table_data)
+            )
+            st.markdown(
+                """
+                <style>
+                    .pass-table-wrap { overflow-x: auto; border: 1px solid rgba(103,212,255,.2); border-radius: 8px; }
+                    table.pass-table { width: 100%; border-collapse: collapse; background: rgba(4,18,34,.82); }
+                    .pass-table th { padding: 13px 16px; color: #9fbad3; background: rgba(24,61,91,.55); font: 600 12px 'DM Mono', monospace; text-align: left; text-transform: uppercase; letter-spacing: .06em; }
+                    .pass-table td { padding: 13px 16px; color: #edf8ff; border-top: 1px solid rgba(103,212,255,.1); font: 500 14px 'DM Mono', monospace; }
+                    .pass-table tr:nth-child(even) td { background: rgba(27,67,98,.16); }
+                    .pass-table tr.next-pass td { color: #80e8ff; background: rgba(25,117,155,.17); }
+                    .pass-table td:nth-child(2) { color: #ffc66d; }
+                    @media (max-width: 640px) { .pass-table th, .pass-table td { padding: 10px 9px; font-size: 12px; } }
+                </style>
+                <div class="pass-table-wrap"><table class="pass-table">
+                    <thead><tr><th>AOS (UTC)</th><th>Max El</th><th>LOS (UTC)</th><th>Duración</th></tr></thead>
+                    <tbody>
+                """
+                + rows_html
+                + "</tbody></table></div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("No hay pases visibles para los parámetros actuales.")
 
     # TAB 4: RF
     elif selected_tab == "Link Budget & Doppler":
