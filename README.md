@@ -9,6 +9,8 @@ La interfaz es una aplicación web estática servida por FastAPI. La API usa Sky
 - Seguimiento orbital con elementos TLE de CelesTrak.
 - Vista 2D del recorrido terrestre y globo 3D interactivo.
 - Predicción de AOS, elevación máxima y LOS para una estación terrestre.
+- Estimación de balance de enlace y desplazamiento Doppler con parámetros editables.
+- Búsqueda de satélites en catálogos grandes de CelesTrak.
 - Configuración manual de la estación y geolocalización desde el navegador.
 - Diseño adaptable a escritorio y móvil.
 

@@ -9,11 +9,13 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
+from skyfield.api import EarthSatellite, load, wgs84
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from satlink.core.fetcher import fetch_tle_by_group  # noqa: E402
+from satlink.core.link_budget import GroundStationReceiver, LinkBudgetCalculator, SatelliteTransmitter  # noqa: E402
 from satlink.core.passes import PassPredictor  # noqa: E402
 from satlink.core.propagator import EARTH_RADIUS_KM, OrbitPropagator, latlon_to_cartesian  # noqa: E402
 
@@ -44,17 +46,35 @@ def home():
 
 
 @app.get("/api/catalog")
-def get_catalog(group: str = Query("stations")):
+def get_catalog(
+    group: str = Query("stations"),
+    search: str = Query("", max_length=80),
+    limit: int = Query(100, ge=1, le=500),
+):
     satellites = _catalog(group)
+    search_term = search.strip().casefold()
+    matches = (
+        [
+            satellite
+            for satellite in satellites
+            if search_term in satellite["name"].casefold()
+            or search_term in satellite["line1"][2:7].strip()
+        ]
+        if search_term
+        else satellites
+    )
     stale = bool(satellites[0].get("_tle_stale"))
     fetched_at = satellites[0].get("_tle_fetched_at")
     return {
         "group": group,
+        "search": search,
+        "total": len(matches),
+        "returned": min(len(matches), limit),
         "stale": stale,
         "fetched_at": datetime.fromtimestamp(fetched_at, timezone.utc).isoformat() if fetched_at else None,
         "satellites": [
             {"name": satellite["name"], "line1": satellite["line1"], "line2": satellite["line2"]}
-            for satellite in satellites
+            for satellite in matches[:limit]
         ],
     }
 
@@ -178,6 +198,62 @@ def _land_points() -> list[list[float]]:
 @app.get("/api/globe-land")
 def globe_land():
     return {"points": _land_points(), "earth_radius": EARTH_RADIUS_KM}
+
+
+@app.get("/api/link-budget")
+def get_link_budget(
+    group: str = Query("stations"),
+    name: str = Query(...),
+    lat: float = Query(43.5357, ge=-90, le=90),
+    lon: float = Query(-5.6615, ge=-180, le=180),
+    alt: float = Query(10, ge=-500, le=10000),
+    frequency_mhz: float = Query(145.8, gt=0, le=100000),
+    tx_power_dbw: float = Query(5, ge=-100, le=100),
+    tx_gain_dbi: float = Query(0, ge=-20, le=100),
+    tx_losses_db: float = Query(1, ge=0, le=100),
+    rx_gain_dbi: float = Query(12, ge=-20, le=100),
+    noise_temp_k: float = Query(200, gt=0, le=100000),
+    bandwidth_hz: float = Query(25000, gt=0, le=100000000000),
+    required_ebn0_db: float = Query(10, ge=-50, le=100),
+):
+    satellite_data = next((item for item in _catalog(group) if item["name"] == name), None)
+    if satellite_data is None:
+        raise HTTPException(status_code=404, detail="Satélite no encontrado en el grupo seleccionado")
+
+    timescale = load.timescale()
+    satellite = EarthSatellite(satellite_data["line1"], satellite_data["line2"], name, timescale)
+    station = wgs84.latlon(lat, lon, elevation_m=alt)
+    relative = (satellite - station).at(timescale.now())
+    distance_km = float(relative.distance().km)
+    elevation_deg = float(relative.altaz()[0].degrees)
+    radial_velocity_km_s = float(relative.position.km @ relative.velocity.km_per_s / distance_km)
+    doppler_hz = -radial_velocity_km_s / 299792.458 * frequency_mhz * 1_000_000
+
+    transmitter = SatelliteTransmitter(
+        frequency_mhz=frequency_mhz,
+        tx_power_dbw=tx_power_dbw,
+        tx_antenna_gain_dbi=tx_gain_dbi,
+        tx_losses_db=tx_losses_db,
+    )
+    receiver = GroundStationReceiver(
+        rx_antenna_gain_dbi=rx_gain_dbi,
+        system_noise_temp_k=noise_temp_k,
+        bandwidth_hz=bandwidth_hz,
+        required_ebn0_db=required_ebn0_db,
+    )
+    budget = LinkBudgetCalculator(transmitter, receiver).evaluate_link(distance_km)
+
+    return {
+        "range_km": round(distance_km, 2),
+        "elevation_deg": round(elevation_deg, 2),
+        "visible": elevation_deg >= 0,
+        "fspl_db": float(budget["fspl_db"]),
+        "received_power_dbw": float(budget["received_power_dbw"]),
+        "cn_ratio_db": float(budget["cn_ratio_db"]),
+        "ebn0_db": float(budget["ebn0_db"]),
+        "link_margin_db": float(budget["link_margin_db"]),
+        "doppler_hz": round(doppler_hz, 2),
+    }
 
 
 @app.get("/api/health")

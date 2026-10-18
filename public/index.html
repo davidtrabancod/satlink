@@ -13,12 +13,12 @@
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <button id="sidebar-open" class="sidebar-open" type="button" aria-label="Abrir menú lateral" title="Abrir menú lateral">›</button>
+  <button id="sidebar-open" class="sidebar-open" type="button" aria-label="Abrir menú lateral" aria-controls="sidebar" aria-expanded="false" title="Abrir menú lateral">›</button>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar" aria-label="Configuración de misión">
       <div class="sidebar-top">
         <div class="sidebar-identity"><div class="sidebar-identity-copy"><span class="sidebar-identity-title">MISSION CONSOLE</span></div></div>
-        <button id="sidebar-close" class="sidebar-toggle" type="button" aria-label="Ocultar menú lateral" title="Ocultar menú lateral">‹‹</button>
+        <button id="sidebar-close" class="sidebar-toggle" type="button" aria-label="Ocultar menú lateral" aria-controls="sidebar" aria-expanded="true" title="Ocultar menú lateral">‹‹</button>
       </div>
       <div class="sidebar-scroll">
         <div class="sidebar-section" role="heading" aria-level="2">
@@ -26,7 +26,10 @@
         </div>
         <label for="group-select">Grupo CelesTrak</label>
         <select id="group-select" class="field-select"><option value="stations">stations</option><option value="starlink">starlink</option><option value="geo">geo</option><option value="active">active</option></select>
-        <label for="satellite-select" class="satellite-label">Satélite</label>
+        <label for="satellite-search" class="satellite-label">Buscar satélite</label>
+        <input id="satellite-search" class="field-search" type="search" placeholder="Nombre o código NORAD" autocomplete="off" aria-describedby="satellite-count">
+        <p id="satellite-count" class="field-help" aria-live="polite"></p>
+        <label for="satellite-select">Satélite activo</label>
         <select id="satellite-select" class="field-select"><option>ISS (ZARYA)</option></select>
 
         <div class="sidebar-section station-section" role="heading" aria-level="2">
@@ -36,9 +39,9 @@
         <p id="location-status" class="location-status" role="status" hidden></p>
 
         <label for="latitude">Latitud (°)</label>
-        <div class="number-field"><input id="latitude" type="number" min="-90" max="90" step="0.01" value="43.5357"><button data-step="-" data-target="latitude" aria-label="Restar latitud">−</button><button data-step="+" data-target="latitude" aria-label="Sumar latitud">+</button></div>
+        <div class="number-field"><input id="latitude" type="number" min="-90" max="90" step="any" value="43.5357"><button data-step="-" data-increment="0.01" data-target="latitude" aria-label="Restar latitud">−</button><button data-step="+" data-increment="0.01" data-target="latitude" aria-label="Sumar latitud">+</button></div>
         <label for="longitude">Longitud (°)</label>
-        <div class="number-field"><input id="longitude" type="number" min="-180" max="180" step="0.01" value="-5.6615"><button data-step="-" data-target="longitude" aria-label="Restar longitud">−</button><button data-step="+" data-target="longitude" aria-label="Sumar longitud">+</button></div>
+        <div class="number-field"><input id="longitude" type="number" min="-180" max="180" step="any" value="-5.6615"><button data-step="-" data-increment="0.01" data-target="longitude" aria-label="Restar longitud">−</button><button data-step="+" data-increment="0.01" data-target="longitude" aria-label="Sumar longitud">+</button></div>
         <label for="altitude">Altitud (m)</label>
         <div class="number-field"><input id="altitude" type="number" min="-500" max="10000" step="10" value="10"><button data-step="-" data-target="altitude" aria-label="Restar altitud">−</button><button data-step="+" data-target="altitude" aria-label="Sumar altitud">+</button></div>
         <label for="elevation-mask">Máscara Elevación (°)</label>
@@ -52,7 +55,7 @@
         <h1 class="satlink-wordmark"><span class="wordmark-satlink">SATLINK</span><span class="wordmark-studio">STUDIO</span></h1>
         <p class="masthead-description">Plataforma de seguimiento orbital, astrodinámica y simulación de radiofrecuencia (RF)</p>
       </header>
-      <div id="notice" class="notice" hidden></div>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
       <section class="mission-hud-box" aria-label="Resumen de misión">
         <article class="hud-cell"><div class="hud-label">🛰️ Satélite activo</div><div class="hud-value" id="hud-satellite">ISS (ZARYA)</div></article>
         <article class="hud-cell"><div class="hud-label">📡 Estación terrestre</div><div class="hud-value" id="hud-station">43.54°, −5.66°</div></article>
@@ -60,14 +63,14 @@
         <article class="hud-cell"><div class="hud-label">🕒 Reloj misión UTC</div><div class="hud-value" id="hud-clock">--:--:-- UTC</div></article>
       </section>
 
-      <nav class="tab-bar" aria-label="Vistas de misión">
-        <button class="tab-button" data-tab="tracker"><span class="tab-icon compass" aria-hidden="true">◈</span><span><small>01</small>Tracker 2D</span></button>
-        <button class="tab-button active" data-tab="globe"><span class="tab-icon globe-icon" aria-hidden="true">◉</span><span><small>02</small>Globo 3D</span></button>
-        <button class="tab-button" data-tab="passes"><span class="tab-icon dish" aria-hidden="true">⌑</span><span><small>03</small>Predicción de Pases</span></button>
-        <button class="tab-button" data-tab="rf"><span class="tab-icon graph" aria-hidden="true">⌁</span><span><small>04</small>Link Budget &amp; Doppler</span></button>
+      <nav class="tab-bar" role="tablist" aria-label="Vistas de misión">
+        <button class="tab-button" id="tab-tracker" role="tab" aria-selected="false" aria-controls="tracker-view" tabindex="-1" data-tab="tracker"><span class="tab-icon compass" aria-hidden="true">◈</span><span><small>01</small>Tracker 2D</span></button>
+        <button class="tab-button active" id="tab-globe" role="tab" aria-selected="true" aria-controls="globe-view" tabindex="0" data-tab="globe"><span class="tab-icon globe-icon" aria-hidden="true">◉</span><span><small>02</small>Globo 3D</span></button>
+        <button class="tab-button" id="tab-passes" role="tab" aria-selected="false" aria-controls="passes-view" tabindex="-1" data-tab="passes"><span class="tab-icon dish" aria-hidden="true">⌑</span><span><small>03</small>Predicción de Pases</span></button>
+        <button class="tab-button" id="tab-rf" role="tab" aria-selected="false" aria-controls="rf-view" tabindex="-1" data-tab="rf"><span class="tab-icon graph" aria-hidden="true">⌁</span><span><small>04</small>Link Budget &amp; Doppler</span></button>
       </nav>
 
-      <section id="tracker-view" class="view" hidden>
+      <section id="tracker-view" class="view" role="tabpanel" aria-labelledby="tab-tracker" hidden>
         <h2 class="view-heading compact-heading">TELEMETRY - LIVE GROUND TRACK 2D</h2>
         <div class="metric-grid">
           <article class="metric-card"><div class="metric-label">Latitud sub-satélite</div><div class="metric-value" id="metric-lat">--°</div></article>
@@ -78,20 +81,50 @@
         <div class="visual-frame tracker-frame"><div id="tracker-stage"><canvas id="tracker-canvas" aria-label="Mapa del recorrido orbital"></canvas></div></div>
       </section>
 
-      <section id="globe-view" class="view">
+      <section id="globe-view" class="view" role="tabpanel" aria-labelledby="tab-globe">
         <h2 class="view-heading">Órbita Tridimensional ECEF — <span id="globe-satellite">ISS (ZARYA)</span></h2>
         <div class="visual-frame globe-frame"><div id="globe-stage"><canvas id="globe-canvas" aria-label="Globo terrestre 3D con órbita del satélite"></canvas></div></div>
       </section>
 
-      <section id="passes-view" class="view" hidden>
+      <section id="passes-view" class="view" role="tabpanel" aria-labelledby="tab-passes" hidden>
         <h2 class="view-heading">Próximos Pases</h2>
         <div class="pass-table-wrap"><table class="pass-table"><thead><tr><th>AOS (UTC)</th><th>Elevación máxima</th><th>LOS (UTC)</th><th>Duración</th></tr></thead><tbody id="passes-body"></tbody></table></div>
         <p id="passes-empty" class="empty-state" hidden>No hay pases visibles para los parámetros actuales.</p>
       </section>
 
-      <section id="rf-view" class="view" hidden>
-        <h2 class="view-heading">Simulación RF</h2>
-        <div class="empty-panel"><span class="panel-signal" aria-hidden="true">⌁</span><p>Ajusta los parámetros para simular el enlace.</p></div>
+      <section id="rf-view" class="view" role="tabpanel" aria-labelledby="tab-rf" hidden>
+        <div class="rf-heading-row"><div><h2 class="view-heading">Link Budget &amp; Doppler</h2><p class="section-intro">Estimación instantánea del enlace para el satélite y la estación seleccionados.</p></div><span class="rf-live-badge"><span></span>ESCENARIO CONFIGURABLE</span></div>
+        <form id="rf-form" class="rf-layout">
+          <section class="rf-panel" aria-labelledby="rf-tx-heading">
+            <div class="rf-panel-heading"><span class="rf-panel-index">01</span><div><h3 id="rf-tx-heading">Transmisor satelital</h3><p>Parámetros de bajada usados para la estimación.</p></div></div>
+            <div class="rf-fields">
+              <label for="rf-frequency">Frecuencia (MHz)<input id="rf-frequency" type="number" min="1" max="100000" step="0.1" value="145.8" required></label>
+              <label for="rf-tx-power">Potencia TX (dBW)<input id="rf-tx-power" type="number" min="-100" max="100" step="0.1" value="5" required></label>
+              <label for="rf-tx-gain">Ganancia antena TX (dBi)<input id="rf-tx-gain" type="number" min="-20" max="100" step="0.1" value="0" required></label>
+              <label for="rf-tx-losses">Pérdidas TX (dB)<input id="rf-tx-losses" type="number" min="0" max="100" step="0.1" value="1" required></label>
+            </div>
+          </section>
+          <section class="rf-panel" aria-labelledby="rf-rx-heading">
+            <div class="rf-panel-heading"><span class="rf-panel-index">02</span><div><h3 id="rf-rx-heading">Receptor terrestre</h3><p>Antena, ruido y requisitos del módem.</p></div></div>
+            <div class="rf-fields">
+              <label for="rf-rx-gain">Ganancia antena RX (dBi)<input id="rf-rx-gain" type="number" min="-20" max="100" step="0.1" value="12" required></label>
+              <label for="rf-noise-temp">Temperatura de ruido (K)<input id="rf-noise-temp" type="number" min="1" max="100000" step="1" value="200" required></label>
+              <label for="rf-bandwidth">Ancho de banda (Hz)<input id="rf-bandwidth" type="number" min="1" max="100000000000" step="any" value="25000" required></label>
+              <label for="rf-required-ebn0">Eb/N₀ requerido (dB)<input id="rf-required-ebn0" type="number" min="-50" max="100" step="0.1" value="10" required></label>
+            </div>
+          </section>
+          <div class="rf-actions"><p>Los valores de antena y transmisor son supuestos editables; no se obtienen del TLE.</p><button id="rf-calculate" class="primary-button" type="submit"><span aria-hidden="true">⌁</span>Calcular enlace</button></div>
+        </form>
+        <p id="rf-status" class="rf-status" role="status" aria-live="polite"></p>
+        <div id="rf-results" class="rf-results" aria-live="polite">
+          <article class="rf-result-card"><span>Distancia oblicua</span><strong id="rf-range">—</strong></article>
+          <article class="rf-result-card"><span>Pérdida espacio libre</span><strong id="rf-fspl">—</strong></article>
+          <article class="rf-result-card"><span>Potencia recibida</span><strong id="rf-power">—</strong></article>
+          <article class="rf-result-card"><span>C/N</span><strong id="rf-cn">—</strong></article>
+          <article class="rf-result-card"><span>Eb/N₀</span><strong id="rf-ebn0">—</strong></article>
+          <article id="rf-margin-card" class="rf-result-card rf-margin-card"><span>Margen de enlace</span><strong id="rf-margin">—</strong><small id="rf-margin-note">En espera del cálculo</small></article>
+          <article class="rf-result-card rf-doppler-card"><span>Desplazamiento Doppler</span><strong id="rf-doppler">—</strong><small>Signo positivo: satélite acercándose</small></article>
+        </div>
       </section>
       <footer class="site-footer"><span>SATLINK STUDIO</span><span>MISSION CONTROL // ORBITAL NETWORK</span></footer>
     </main>

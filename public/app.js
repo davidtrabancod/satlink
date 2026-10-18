@@ -2,6 +2,7 @@
   const $ = (selector) => document.querySelector(selector);
   const state = {
     group: "stations", name: "ISS (ZARYA)", tab: "globe", catalog: [], mission: null, refreshing: false,
+    missionRequest: 0, missionController: null, catalogRequest: 0, catalogController: null, catalogTimer: 0, rfRequest: 0, rfController: null, rfTimer: 0,
     land: null, world: null, globe: { longitude: -.35, tilt: -1.15, dragging: false, lastX: 0, lastY: 0, frame: 0, previousTimestamp: 0 },
     countdownTarget: null,
     map: { zoom: 1, x: 0, y: 0, width: 1080, height: 540, scale: 1, ox: 0, oy: 0, dpr: 1 },
@@ -15,8 +16,8 @@
     notice.hidden = !message;
   }
 
-  async function api(path) {
-    const response = await fetch(path, { headers: { Accept: "application/json" } });
+  async function api(path, options = {}) {
+    const response = await fetch(path, { headers: { Accept: "application/json" }, ...options });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.detail || `Error ${response.status}`);
     return body;
@@ -32,42 +33,77 @@
     return query.toString();
   }
 
-  async function loadCatalog() {
-    showNotice("Conectando con CelesTrak…");
-    const result = await api(`/api/catalog?group=${encodeURIComponent(state.group)}`);
-    state.catalog = result.satellites;
-    const select = $("#satellite-select");
-    select.replaceChildren(...state.catalog.map((satellite) => {
-      const option = document.createElement("option");
-      option.value = satellite.name;
-      option.textContent = satellite.name;
-      return option;
-    }));
-    const preferred = state.catalog.find((satellite) => satellite.name === "ISS (ZARYA)") || state.catalog[0];
-    state.name = preferred.name;
-    select.value = state.name;
-    if (result.stale) {
-      const date = result.fetched_at ? new Date(result.fetched_at).toLocaleString("es-ES", { timeZone: "UTC", dateStyle: "short", timeStyle: "short" }) : "fecha desconocida";
-      showNotice(`CelesTrak no ha entregado datos nuevos. Se usa una copia de respaldo del ${date} UTC; las predicciones pueden estar desactualizadas.`, "warning");
-    } else showNotice("");
-    await loadMission();
+  async function loadCatalog({ searchOnly = false } = {}) {
+    const requestId = ++state.catalogRequest;
+    state.catalogController?.abort();
+    const controller = new AbortController();
+    state.catalogController = controller;
+    const groupSelect = $("#group-select");
+    if (!searchOnly) { groupSelect.disabled = true; showNotice("Conectando con CelesTrak…"); }
+    try {
+      const params = new URLSearchParams({ group: state.group, search: $("#satellite-search").value.trim(), limit: "100" });
+      const result = await api(`/api/catalog?${params}`, { signal: controller.signal });
+      if (requestId !== state.catalogRequest) return;
+      state.catalog = result.satellites;
+      const select = $("#satellite-select");
+      select.replaceChildren(...state.catalog.map((satellite) => {
+        const option = document.createElement("option");
+        option.value = satellite.name;
+        option.textContent = satellite.name;
+        return option;
+      }));
+      const currentOption = state.catalog.find((satellite) => satellite.name === state.name);
+      if (searchOnly) {
+        select.value = currentOption?.name || "";
+      } else {
+        const preferred = currentOption || state.catalog.find((satellite) => satellite.name === "ISS (ZARYA)") || state.catalog[0];
+        state.name = preferred.name;
+        select.value = state.name;
+      }
+      const total = Number(result.total || 0);
+      $("#satellite-count").textContent = total > result.returned
+        ? `Mostrando ${result.returned} de ${total.toLocaleString("es-ES")} satélites. Afina la búsqueda para encontrar el resto.`
+        : `${total.toLocaleString("es-ES")} satélite${total === 1 ? "" : "s"} disponible${total === 1 ? "" : "s"}.`;
+      if (!searchOnly) {
+        if (result.stale) {
+          const date = result.fetched_at ? new Date(result.fetched_at).toLocaleString("es-ES", { timeZone: "UTC", dateStyle: "short", timeStyle: "short" }) : "fecha desconocida";
+          showNotice(`CelesTrak no ha entregado datos nuevos. Se usa una copia de respaldo del ${date} UTC; las predicciones pueden estar desactualizadas.`, "warning");
+        } else showNotice("");
+        await loadMission();
+      }
+    } catch (error) {
+      if (error.name !== "AbortError" && requestId === state.catalogRequest) {
+        if (searchOnly) $("#satellite-count").textContent = `No se pudo buscar: ${error.message}`;
+        else throw error;
+      }
+    } finally {
+      if (requestId === state.catalogRequest && !searchOnly) groupSelect.disabled = false;
+    }
   }
 
   async function loadMission() {
-    if (state.refreshing) return;
+    const stationInputs = ["#latitude", "#longitude", "#altitude", "#elevation-mask"].map($);
+    const invalidInput = stationInputs.find((input) => !input.checkValidity());
+    if (invalidInput) { invalidInput.reportValidity(); return; }
+    const requestId = ++state.missionRequest;
+    state.missionController?.abort();
+    const controller = new AbortController();
+    state.missionController = controller;
     state.refreshing = true;
     try {
       const hasTrack = state.tab === "tracker" || state.tab === "globe";
-      const result = await api(`/api/mission?${queryParams(hasTrack)}`);
+      const result = await api(`/api/mission?${queryParams(hasTrack)}`, { signal: controller.signal });
+      if (requestId !== state.missionRequest) return;
       state.mission = result;
       updateDashboard();
       if (state.tab === "tracker") drawTracker();
       if (state.tab === "globe") drawGlobe(performance.now(), true);
       if (state.tab === "passes") renderPasses();
+      if (state.tab === "rf") calculateRf();
     } catch (error) {
-      showNotice(`No se pudo actualizar la telemetría: ${error.message}`, "error");
+      if (error.name !== "AbortError" && requestId === state.missionRequest) showNotice(`No se pudo actualizar la telemetría: ${error.message}`, "error");
     } finally {
-      state.refreshing = false;
+      if (requestId === state.missionRequest) state.refreshing = false;
     }
   }
 
@@ -101,7 +137,7 @@
       const los = new Date(pass.los_time);
       const duration = Math.floor(pass.duration_seconds);
       const values = [
-        aos.toISOString().replace("T", " ").slice(0, 19),
+        `${aos.toISOString().slice(0, 10)} ${aos.toISOString().slice(11, 19)}`,
         `${pass.max_elevation.toFixed(1)}°`,
         los.toISOString().slice(11, 19),
         `${Math.floor(duration / 60)}m ${duration % 60}s`,
@@ -118,11 +154,58 @@
   function setTab(tab) {
     if (!tabNames[tab]) return;
     state.tab = tab;
-    document.querySelectorAll(".tab-button").forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
+    document.querySelectorAll(".tab-button").forEach((button) => {
+      const active = button.dataset.tab === tab;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
     document.querySelectorAll(".view").forEach((view) => { view.hidden = view.id !== `${tab}-view`; });
-    if (tab === "tracker" || tab === "globe") loadMission();
+    if (["tracker", "globe", "passes", "rf"].includes(tab)) loadMission();
     if (tab === "passes" && state.mission) renderPasses();
     if (tab !== "globe" && state.globe.frame) { cancelAnimationFrame(state.globe.frame); state.globe.frame = 0; }
+  }
+
+  function calculateRf() {
+    const form = $("#rf-form");
+    if (!form.reportValidity()) return;
+    const requestId = ++state.rfRequest;
+    state.rfController?.abort();
+    const controller = new AbortController();
+    state.rfController = controller;
+    const button = $("#rf-calculate");
+    button.disabled = true;
+    $("#rf-status").textContent = "Calculando geometría orbital y balance…";
+    const params = new URLSearchParams({
+      group: state.group, name: state.name, lat: $("#latitude").value, lon: $("#longitude").value,
+      alt: $("#altitude").value, frequency_mhz: $("#rf-frequency").value,
+      tx_power_dbw: $("#rf-tx-power").value, tx_gain_dbi: $("#rf-tx-gain").value,
+      tx_losses_db: $("#rf-tx-losses").value, rx_gain_dbi: $("#rf-rx-gain").value,
+      noise_temp_k: $("#rf-noise-temp").value, bandwidth_hz: $("#rf-bandwidth").value,
+      required_ebn0_db: $("#rf-required-ebn0").value,
+    });
+    api(`/api/link-budget?${params}`, { signal: controller.signal }).then((result) => {
+      if (requestId !== state.rfRequest) return;
+      const db = (value) => `${Number(value).toFixed(2)} dB`;
+      $("#rf-range").textContent = `${Number(result.range_km).toLocaleString("es-ES", { maximumFractionDigits: 2 })} km`;
+      $("#rf-fspl").textContent = db(result.fspl_db);
+      $("#rf-power").textContent = `${Number(result.received_power_dbw).toFixed(2)} dBW`;
+      $("#rf-cn").textContent = db(result.cn_ratio_db);
+      $("#rf-ebn0").textContent = db(result.ebn0_db);
+      $("#rf-doppler").textContent = `${Number(result.doppler_hz).toFixed(1)} Hz`;
+      const margin = $("#rf-margin-card");
+      margin.classList.toggle("link-ok", result.visible && result.link_margin_db >= 0);
+      margin.classList.toggle("link-low", !result.visible || result.link_margin_db < 0);
+      $("#rf-margin").textContent = db(result.link_margin_db);
+      $("#rf-margin-note").textContent = !result.visible ? `Satélite bajo el horizonte (${Number(result.elevation_deg).toFixed(1)}°)`
+        : result.link_margin_db >= 0 ? `Enlace viable · elevación ${Number(result.elevation_deg).toFixed(1)}°`
+          : `Margen insuficiente · elevación ${Number(result.elevation_deg).toFixed(1)}°`;
+      $("#rf-status").textContent = "Estimación actualizada con la posición del satélite en este instante.";
+    }).catch((error) => {
+      if (error.name !== "AbortError" && requestId === state.rfRequest) $("#rf-status").textContent = `No se pudo calcular el enlace: ${error.message}`;
+    }).finally(() => {
+      if (requestId === state.rfRequest) button.disabled = false;
+    });
   }
 
   async function loadWorld() {
@@ -324,18 +407,59 @@
   }
 
   function setupEvents() {
-    $("#sidebar-close").addEventListener("click", () => { document.body.classList.add("sidebar-collapsed"); $("#sidebar").classList.add("hidden"); $("#sidebar-open").classList.add("visible"); });
-    $("#sidebar-open").addEventListener("click", () => { document.body.classList.remove("sidebar-collapsed"); $("#sidebar").classList.remove("hidden"); $("#sidebar-open").classList.remove("visible"); });
-    $("#group-select").addEventListener("change", async (event) => { state.group = event.target.value; try { await loadCatalog(); } catch (error) { showNotice(error.message, "error"); } });
+    const closeSidebar = () => {
+      document.body.classList.add("sidebar-collapsed"); $("#sidebar").classList.add("hidden"); $("#sidebar-open").classList.add("visible");
+      $("#sidebar-open").setAttribute("aria-expanded", "true"); $("#sidebar-close").setAttribute("aria-expanded", "false"); $("#sidebar-open").focus();
+    };
+    const openSidebar = () => {
+      document.body.classList.remove("sidebar-collapsed"); $("#sidebar").classList.remove("hidden"); $("#sidebar-open").classList.remove("visible");
+      $("#sidebar-open").setAttribute("aria-expanded", "false"); $("#sidebar-close").setAttribute("aria-expanded", "true"); $("#sidebar-close").focus();
+    };
+    $("#sidebar-close").addEventListener("click", closeSidebar);
+    $("#sidebar-open").addEventListener("click", openSidebar);
+    window.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("#sidebar").classList.contains("hidden")) closeSidebar(); });
+    $("#group-select").addEventListener("change", async (event) => {
+      const previousGroup = state.group;
+      state.group = event.target.value;
+      $("#satellite-search").value = "";
+      try { await loadCatalog(); }
+      catch (error) {
+        if (error.name !== "AbortError") { state.group = previousGroup; event.target.value = previousGroup; showNotice(error.message, "error"); }
+      }
+    });
+    $("#satellite-search").addEventListener("input", () => {
+      window.clearTimeout(state.catalogTimer);
+      state.catalogTimer = window.setTimeout(() => loadCatalog({ searchOnly: true }), 250);
+    });
     $("#satellite-select").addEventListener("change", (event) => { state.name = event.target.value; loadMission(); });
     $("#elevation-mask").addEventListener("input", (event) => { $("#elevation-value").value = `${event.target.value}°`; });
     ["#latitude", "#longitude", "#altitude", "#elevation-mask"].forEach((selector) => $(selector).addEventListener("change", () => loadMission()));
     document.querySelectorAll("[data-step]").forEach((button) => button.addEventListener("click", () => {
-      const input = $(`#${button.dataset.target}`), step = Number(input.step || 1) * (button.dataset.step === "+" ? 1 : -1);
-      input.value = String(Math.max(Number(input.min), Math.min(Number(input.max), Number(input.value || 0) + step)));
+      const input = $(`#${button.dataset.target}`), increment = Number(button.dataset.increment || input.step || 1);
+      const decimals = Math.max((input.value.split(".")[1] || "").length, (String(increment).split(".")[1] || "").length);
+      const step = increment * (button.dataset.step === "+" ? 1 : -1);
+      const next = Math.max(Number(input.min), Math.min(Number(input.max), Number(input.value || 0) + step));
+      input.value = decimals ? next.toFixed(decimals) : String(next);
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }));
-    document.querySelectorAll(".tab-button").forEach((button) => button.addEventListener("click", () => setTab(button.dataset.tab)));
+    document.querySelectorAll(".tab-button").forEach((button) => {
+      button.addEventListener("click", () => setTab(button.dataset.tab));
+      button.addEventListener("keydown", (event) => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const tabs = [...document.querySelectorAll(".tab-button")];
+        const index = tabs.indexOf(button);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+          : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+        setTab(tabs[next].dataset.tab);
+        tabs[next].focus();
+      });
+    });
+    $("#rf-form").addEventListener("submit", (event) => { event.preventDefault(); calculateRf(); });
+    $("#rf-form").addEventListener("input", () => {
+      window.clearTimeout(state.rfTimer);
+      state.rfTimer = window.setTimeout(calculateRf, 450);
+    });
     $("#geolocate").addEventListener("click", () => {
       if (!navigator.geolocation) { $("#location-status").textContent = "Este navegador no admite geolocalización."; $("#location-status").hidden = false; return; }
       $("#location-status").hidden = true;
