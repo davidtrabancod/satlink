@@ -1,41 +1,36 @@
-# 🛰️ SatLink Studio
+# SatLink Studio
 
-> **Open-Source Satellite Tracking & Ground Station Link Planning Platform**
+Plataforma de seguimiento de satélites, predicción de pases sobre estaciones terrestres y planificación de radioenlaces.
 
-**SatLink Studio** es una plataforma orientada a la ingeniería de telecomunicaciones y la mecánica orbital. Permite el seguimiento de satélites en tiempo real, la predicción de pases sobre estaciones terrestres (*AOS*, *TCA*, *LOS*), la generación de diagramas polares de apuntamiento (*Skyplots*) y el análisis de presupuestos de enlace (*Link Budget*).
+La interfaz es una aplicación web estática servida por FastAPI. La API usa Skyfield para propagar las órbitas y Vercel Python Functions para el despliegue.
 
----
+## Funciones
 
-## 🚀 Características Principales
+- Seguimiento orbital con elementos TLE de CelesTrak.
+- Vista 2D del recorrido terrestre y globo 3D interactivo.
+- Predicción de AOS, elevación máxima y LOS para una estación terrestre.
+- Configuración manual de la estación y geolocalización desde el navegador.
+- Diseño adaptable a escritorio y móvil.
 
-- **Seguimiento Orbital en Tiempo Real:** Propagación SGP4 de alta precisión consumiendo elementos TLE (*Two-Line Element set*) actualizados desde CelesTrak.
-- **Predicción de Pases (Topocéntrica):** Cálculo de momentos clave de visibilidad (*AOS - Acquisition of Signal*, *TCA - Time of Closest Approach*, *LOS - Loss of Signal*) sobre coordenadas personalizadas de la Estación Terrestre.
-- **Visualización Interactiva:** Mapas 2D con proyección equirrectangular y diagramas polares para el barrido de antenas.
-- **Arquitectura Modular (Python):** Diseñado siguiendo la estructura moderna `src/` layout, facilísimo de extender y probar.
+## Ejecutar localmente
 
----
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+uvicorn index:app --reload
+```
 
-## 🛠️ Tech Stack
+Abre <http://127.0.0.1:8000>.
 
-- **Lenguaje:** Python 3.10+
-- **Mecánica Orbital:** Skyfield (SGP4)
-- **Procesamiento de Datos:** NumPy, Pandas
-- **Visualización:** Plotly, Streamlit
-- **Testing:** Pytest
+## Desplegar en Vercel
 
----
+1. Importa el repositorio en Vercel y deja el directorio raíz en `.`.
+2. Vercel detecta `index.py` como aplicación FastAPI y toma las dependencias de `pyproject.toml`.
+3. Despliega el proyecto. No hace falta configurar variables de entorno.
 
-## 📁 Estructura del Repositorio
+El frontend está en `public/`; la API y el punto de entrada FastAPI están en `index.py`. Los cálculos orbitales existentes siguen en `src/satlink/core/`.
 
-```text
-satlink/
-├── pyproject.toml              # Configuración del paquete y dependencias
-├── src/
-│   └── satlink/
-│       ├── core/               # Motores astrodinámicos y de RF
-│       │   ├── fetcher.py      # Cliente HTTP para TLEs de CelesTrak
-│       │   ├── propagator.py   # Propagación SGP4 (ECI/ECEF)
-│       │   └── passes.py       # Algoritmos topocéntricos (AER) y pases
-│       └── ui/
-│           └── app.py          # Dashboard interactivo en Streamlit
-└── tests/                      # Suite de pruebas con Pytest
+## Desarrollo
+
+Las pruebas del motor orbital están en `tests/` y se ejecutan con `pytest`.

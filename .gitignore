@@ -20,5 +20,5 @@ dist/
 .vscode/
 .idea/
 
-# Streamlit
+# Local Streamlit settings from the previous app deployment
 .streamlit/

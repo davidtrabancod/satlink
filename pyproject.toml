@@ -13,10 +13,8 @@ dependencies = [
     "skyfield>=1.48",
     "requests>=2.31.0",
     "pandas>=2.0.0",
-    "plotly>=5.18.0",
-    "streamlit>=1.30.0",
     "numpy>=1.24.0",
-    "streamlit-geolocation>=0.0.8",
+    "fastapi>=0.117.1",
 ]
 
 [project.optional-dependencies]
@@ -24,7 +22,8 @@ dev = [
     "pytest>=8.0.0",
     "black",
     "flake8",
+    "uvicorn[standard]>=0.30.0",
 ]
 
 [tool.setuptools.package-data]
-"satlink.core" = ["assets/tle/*.json"]
+"satlink.core" = ["assets/tle/*.json", "assets/*.npz"]

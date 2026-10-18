@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#020d1b">
+  <meta name="description" content="SatLink Studio — seguimiento orbital, predicción de pases y simulación de radiofrecuencia.">
+  <title>SatLink Studio — Mission Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <button id="sidebar-open" class="sidebar-open" type="button" aria-label="Abrir menú lateral" title="Abrir menú lateral">›</button>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Configuración de misión">
+      <div class="sidebar-top">
+        <div class="sidebar-identity"><div class="sidebar-identity-copy"><span class="sidebar-identity-title">MISSION CONSOLE</span></div></div>
+        <button id="sidebar-close" class="sidebar-toggle" type="button" aria-label="Ocultar menú lateral" title="Ocultar menú lateral">‹‹</button>
+      </div>
+      <div class="sidebar-scroll">
+        <div class="sidebar-section" role="heading" aria-level="2">
+          <span class="sidebar-section-index">01</span><span class="sidebar-section-copy"><span class="sidebar-section-kicker">Configuración satelital</span><span class="sidebar-section-title">Satélite</span></span><span class="sidebar-section-badge">TLE</span>
+        </div>
+        <label for="group-select">Grupo CelesTrak</label>
+        <select id="group-select" class="field-select"><option value="stations">stations</option><option value="starlink">starlink</option><option value="geo">geo</option><option value="active">active</option></select>
+        <label for="satellite-select" class="satellite-label">Satélite</label>
+        <select id="satellite-select" class="field-select"><option>ISS (ZARYA)</option></select>
+
+        <div class="sidebar-section station-section" role="heading" aria-level="2">
+          <span class="sidebar-section-index">02</span><span class="sidebar-section-copy"><span class="sidebar-section-kicker">Segmento terrestre</span><span class="sidebar-section-title">Estación terrestre</span></span><span class="sidebar-section-badge">GS</span>
+        </div>
+        <button id="geolocate" class="location-button" type="button"><span class="location-icon" aria-hidden="true">⌖</span><span id="location-label">USAR MI UBICACIÓN</span></button>
+        <p id="location-status" class="location-status" role="status" hidden></p>
+
+        <label for="latitude">Latitud (°)</label>
+        <div class="number-field"><input id="latitude" type="number" min="-90" max="90" step="0.01" value="43.5357"><button data-step="-" data-target="latitude" aria-label="Restar latitud">−</button><button data-step="+" data-target="latitude" aria-label="Sumar latitud">+</button></div>
+        <label for="longitude">Longitud (°)</label>
+        <div class="number-field"><input id="longitude" type="number" min="-180" max="180" step="0.01" value="-5.6615"><button data-step="-" data-target="longitude" aria-label="Restar longitud">−</button><button data-step="+" data-target="longitude" aria-label="Sumar longitud">+</button></div>
+        <label for="altitude">Altitud (m)</label>
+        <div class="number-field"><input id="altitude" type="number" min="-500" max="10000" step="10" value="10"><button data-step="-" data-target="altitude" aria-label="Restar altitud">−</button><button data-step="+" data-target="altitude" aria-label="Sumar altitud">+</button></div>
+        <label for="elevation-mask">Máscara Elevación (°)</label>
+        <div class="range-field"><input id="elevation-mask" type="range" min="0" max="30" value="10"><output id="elevation-value">10°</output></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="satlink-masthead" aria-label="SatLink Studio">
+        <div class="masthead-kicker"><span class="masthead-status" aria-hidden="true"></span><span>MISSION CONTROL</span><span class="masthead-separator">//</span><span>ORBITAL NETWORK</span></div>
+        <h1 class="satlink-wordmark"><span class="wordmark-satlink">SATLINK</span><span class="wordmark-studio">STUDIO</span></h1>
+        <p class="masthead-description">Plataforma de seguimiento orbital, astrodinámica y simulación de radiofrecuencia (RF)</p>
+      </header>
+      <div id="notice" class="notice" hidden></div>
+      <section class="mission-hud-box" aria-label="Resumen de misión">
+        <article class="hud-cell"><div class="hud-label">🛰️ Satélite activo</div><div class="hud-value" id="hud-satellite">ISS (ZARYA)</div></article>
+        <article class="hud-cell"><div class="hud-label">📡 Estación terrestre</div><div class="hud-value" id="hud-station">43.54°, −5.66°</div></article>
+        <article class="hud-cell"><div class="hud-label" id="hud-pass-label">⏳ AOS</div><div class="hud-value" id="hud-countdown">Calculando…</div></article>
+        <article class="hud-cell"><div class="hud-label">🕒 Reloj misión UTC</div><div class="hud-value" id="hud-clock">--:--:-- UTC</div></article>
+      </section>
+
+      <nav class="tab-bar" aria-label="Vistas de misión">
+        <button class="tab-button" data-tab="tracker"><span class="tab-icon compass" aria-hidden="true">◈</span><span><small>01</small>Tracker 2D</span></button>
+        <button class="tab-button active" data-tab="globe"><span class="tab-icon globe-icon" aria-hidden="true">◉</span><span><small>02</small>Globo 3D</span></button>
+        <button class="tab-button" data-tab="passes"><span class="tab-icon dish" aria-hidden="true">⌑</span><span><small>03</small>Predicción de Pases</span></button>
+        <button class="tab-button" data-tab="rf"><span class="tab-icon graph" aria-hidden="true">⌁</span><span><small>04</small>Link Budget &amp; Doppler</span></button>
+      </nav>
+
+      <section id="tracker-view" class="view" hidden>
+        <h2 class="view-heading compact-heading">TELEMETRY - LIVE GROUND TRACK 2D</h2>
+        <div class="metric-grid">
+          <article class="metric-card"><div class="metric-label">Latitud sub-satélite</div><div class="metric-value" id="metric-lat">--°</div></article>
+          <article class="metric-card"><div class="metric-label">Longitud sub-satélite</div><div class="metric-value" id="metric-lon">--°</div></article>
+          <article class="metric-card"><div class="metric-label">Altitud Orbital</div><div class="metric-value" id="metric-alt">-- km</div></article>
+          <article class="metric-card"><div class="metric-label">Velocidad Orbital</div><div class="metric-value" id="metric-speed">-- km/s</div></article>
+        </div>
+        <div class="visual-frame tracker-frame"><div id="tracker-stage"><canvas id="tracker-canvas" aria-label="Mapa del recorrido orbital"></canvas></div></div>
+      </section>
+
+      <section id="globe-view" class="view">
+        <h2 class="view-heading">Órbita Tridimensional ECEF — <span id="globe-satellite">ISS (ZARYA)</span></h2>
+        <div class="visual-frame globe-frame"><div id="globe-stage"><canvas id="globe-canvas" aria-label="Globo terrestre 3D con órbita del satélite"></canvas></div></div>
+      </section>
+
+      <section id="passes-view" class="view" hidden>
+        <h2 class="view-heading">Próximos Pases</h2>
+        <div class="pass-table-wrap"><table class="pass-table"><thead><tr><th>AOS (UTC)</th><th>Elevación máxima</th><th>LOS (UTC)</th><th>Duración</th></tr></thead><tbody id="passes-body"></tbody></table></div>
+        <p id="passes-empty" class="empty-state" hidden>No hay pases visibles para los parámetros actuales.</p>
+      </section>
+
+      <section id="rf-view" class="view" hidden>
+        <h2 class="view-heading">Simulación RF</h2>
+        <div class="empty-panel"><span class="panel-signal" aria-hidden="true">⌁</span><p>Ajusta los parámetros para simular el enlace.</p></div>
+      </section>
+      <footer class="site-footer"><span>SATLINK STUDIO</span><span>MISSION CONTROL // ORBITAL NETWORK</span></footer>
+    </main>
+  </div>
+</body>
+</html>
