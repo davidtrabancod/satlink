@@ -63,7 +63,7 @@ button:disabled { cursor: wait; opacity: .62; }
 .field-select:focus, .field-search:focus, .number-field:focus-within { outline: 0; border-color: var(--mint); box-shadow: 0 0 0 1px rgba(113, 215, 193, .22); }
 .field-help { min-height: 14px; margin: 7px 0 0; color: rgba(159, 186, 211, .72); font: 500 10px/1.4 'DM Mono', monospace; }
 .satellite-label { margin-top: 31px !important; }
-.station-section { padding-top: 13px; margin-top: 52px; border-top: 1px solid rgba(113, 215, 193, .3); }
+.station-section { padding-top: 15px; margin-top: 64px; border-top: 1px solid rgba(113, 215, 193, .3); }
 .location-button { display: flex; width: 100%; height: 42px; align-items: center; justify-content: center; gap: 9px; border: 1px solid rgba(113, 215, 193, .42); border-radius: 5px; background: linear-gradient(120deg, #15282a, #102022); color: var(--text); font: 600 14px 'Rajdhani', sans-serif; cursor: pointer; }
 .location-button:hover, .location-button.using { border-color: var(--teal); background: rgba(113, 215, 193, .14); color: var(--teal); }
 .location-icon { color: var(--teal); font-size: 19px; }
