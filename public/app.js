@@ -114,7 +114,7 @@
     $("#hud-satellite").textContent = sat.name;
     $("#globe-satellite").textContent = sat.name;
     $("#hud-station").textContent = `${Number($("#latitude").value).toFixed(2)}°, ${Number($("#longitude").value).toFixed(2)}°`;
-    $("#hud-pass-label").textContent = `⏳ ${mission.pass_status.label}`;
+    $("#hud-pass-label").textContent = mission.pass_status.label;
     $("#hud-countdown").textContent = mission.pass_status.countdown;
     state.countdownTarget = mission.pass_status.event_timestamp;
     $("#metric-lat").textContent = `${sat.latitude.toFixed(4)}°`;
@@ -160,6 +160,9 @@
       button.setAttribute("aria-selected", String(active));
       button.tabIndex = active ? 0 : -1;
     });
+    const activeName = $("#active-view-name");
+    if (activeName) activeName.textContent = tabNames[tab];
+    window.closeSatlinkViewMenu?.();
     document.querySelectorAll(".view").forEach((view) => { view.hidden = view.id !== `${tab}-view`; });
     if (["tracker", "globe", "passes", "rf"].includes(tab)) loadMission();
     if (tab === "passes" && state.mission) renderPasses();
@@ -303,7 +306,7 @@
     ctx.fillStyle = "#ff6688"; ctx.beginPath(); ctx.moveTo(sat[0], sat[1] - 6 / m.zoom); ctx.lineTo(sat[0] + 6 / m.zoom, sat[1]); ctx.lineTo(sat[0], sat[1] + 6 / m.zoom); ctx.lineTo(sat[0] - 6 / m.zoom, sat[1]); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
     ctx.restore();
     ctx.fillStyle = "rgba(8,19,22,.86)"; ctx.fillRect(14, 14, 246, 82); ctx.strokeStyle = "rgba(113,215,193,.32)"; ctx.strokeRect(14, 14, 246, 82);
-    ctx.font = "12px 'DM Mono',monospace"; const legend = [["#6ad8ff", "GROUND TRACK"], ["#ff6688", `SATELLITE - ${state.name}`], ["#ffcc66", "GROUND STATION"]];
+    ctx.font = "400 10px 'Space Mono',monospace"; const legend = [["#6ad8ff", "GROUND TRACK"], ["#ff6688", `SATELLITE - ${state.name}`], ["#ffcc66", "GROUND STATION"]];
     legend.forEach(([color, label], index) => { const y = 38 + index * 24; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(26, y - 4, 3, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#edf4ef"; ctx.fillText(label, 36, y); });
   }
 
@@ -407,6 +410,242 @@
   }
 
   function setupEvents() {
+    if (window.matchMedia("(pointer: fine)").matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      let pointerFrame = 0;
+      let pointerX = window.innerWidth * .72;
+      let pointerY = window.innerHeight * .28;
+      window.addEventListener("pointermove", (event) => {
+        if (event.pointerType === "touch") return;
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        if (pointerFrame) return;
+        pointerFrame = requestAnimationFrame(() => {
+          document.documentElement.style.setProperty("--cursor-x", `${pointerX}px`);
+          document.documentElement.style.setProperty("--cursor-y", `${pointerY}px`);
+          pointerFrame = 0;
+        });
+      }, { passive: true });
+    }
+    const customSelects = new Map();
+    const syncCustomSelect = (select) => {
+      const control = customSelects.get(select);
+      if (!control) return;
+      const selected = select.selectedOptions[0];
+      control.value.textContent = selected?.textContent || "Selecciona una opción";
+      control.trigger.disabled = select.disabled;
+      control.menu.querySelectorAll(".picker-option").forEach((option) => {
+        const active = option.dataset.value === select.value;
+        option.setAttribute("aria-selected", String(active));
+        option.classList.toggle("selected", active);
+      });
+    };
+    const closePicker = (control, restoreFocus = false) => {
+      control.menu.classList.remove("open");
+      control.trigger.setAttribute("aria-expanded", "false");
+      window.setTimeout(() => { if (!control.menu.classList.contains("open")) control.menu.hidden = true; }, 190);
+      if (restoreFocus) control.trigger.focus();
+    };
+    const openPicker = (control) => {
+      customSelects.forEach((other) => {
+        if (other !== control) {
+          other.menu.classList.remove("open");
+          other.menu.hidden = true;
+          other.trigger.setAttribute("aria-expanded", "false");
+        }
+      });
+      const bounds = control.trigger.getBoundingClientRect();
+      const menuHeight = Math.min(control.menu.querySelectorAll(".picker-option").length * 39 + 16, 260);
+      const top = bounds.bottom + menuHeight + 12 <= window.innerHeight
+        ? bounds.bottom + 8 : Math.max(12, bounds.top - menuHeight - 8);
+      control.menu.style.left = `${Math.max(10, Math.min(bounds.left, window.innerWidth - bounds.width - 10))}px`;
+      control.menu.style.width = `${bounds.width}px`;
+      control.menu.style.top = `${top}px`;
+      control.menu.hidden = false;
+      requestAnimationFrame(() => control.menu.classList.add("open"));
+      control.trigger.setAttribute("aria-expanded", "true");
+    };
+    const enhanceSelect = (select) => {
+      if (!select || customSelects.has(select)) return;
+      const label = document.querySelector(`label[for="${select.id}"]`);
+      const wrapper = document.createElement("div");
+      wrapper.className = "custom-select";
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "picker-trigger";
+      trigger.id = `${select.id}-trigger`;
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.setAttribute("aria-label", label?.textContent.trim() || "Seleccionar opción");
+      const icon = document.createElement("span");
+      icon.className = "picker-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = select.id === "group-select" ? "◌" : "⌖";
+      const value = document.createElement("span");
+      value.className = "picker-value";
+      const chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      chevron.setAttribute("class", "picker-chevron");
+      chevron.setAttribute("viewBox", "0 0 16 16");
+      chevron.setAttribute("fill", "none");
+      chevron.setAttribute("aria-hidden", "true");
+      const chevronPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      chevronPath.setAttribute("d", "m4 6 4 4 4-4");
+      chevronPath.setAttribute("stroke", "currentColor");
+      chevronPath.setAttribute("stroke-width", "1.5");
+      chevronPath.setAttribute("stroke-linecap", "round");
+      chevronPath.setAttribute("stroke-linejoin", "round");
+      chevron.append(chevronPath);
+      trigger.append(icon, value, chevron);
+      const menu = document.createElement("div");
+      menu.className = "picker-menu";
+      menu.id = `${select.id}-menu`;
+      menu.setAttribute("role", "listbox");
+      menu.setAttribute("aria-label", label?.textContent.trim() || "Opciones");
+      trigger.setAttribute("aria-controls", menu.id);
+      select.parentNode.insertBefore(wrapper, select);
+      wrapper.append(select, trigger);
+      document.body.append(menu);
+      select.classList.add("native-select-source");
+      select.tabIndex = -1;
+      select.setAttribute("aria-hidden", "true");
+      if (label) label.htmlFor = trigger.id;
+      const control = { select, trigger, menu, value };
+      customSelects.set(select, control);
+      const renderOptions = () => {
+        const options = [...select.options].map((nativeOption) => {
+          const option = document.createElement("button");
+          option.type = "button";
+          option.className = "picker-option";
+          option.setAttribute("role", "option");
+          option.dataset.value = nativeOption.value;
+          const text = document.createElement("span");
+          text.textContent = nativeOption.textContent;
+          const check = document.createElement("i");
+          check.setAttribute("aria-hidden", "true");
+          check.textContent = "✓";
+          option.append(text, check);
+          option.addEventListener("click", () => {
+            select.value = nativeOption.value;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            syncCustomSelect(select);
+            closePicker(control, true);
+          });
+          option.addEventListener("keydown", (event) => {
+            const items = [...menu.querySelectorAll(".picker-option")];
+            const index = items.indexOf(option);
+            if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+              event.preventDefault();
+              const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+                : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+              items[next]?.focus();
+            }
+            if (event.key === "Escape") { event.preventDefault(); closePicker(control, true); }
+          });
+          return option;
+        });
+        menu.replaceChildren(...options);
+        syncCustomSelect(select);
+      };
+      renderOptions();
+      select.addEventListener("change", () => syncCustomSelect(select));
+      const observer = new MutationObserver(renderOptions);
+      observer.observe(select, { childList: true, attributes: true, attributeFilter: ["disabled"] });
+      trigger.addEventListener("click", () => trigger.getAttribute("aria-expanded") === "true" ? closePicker(control) : openPicker(control));
+      trigger.addEventListener("keydown", (event) => {
+        if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
+          event.preventDefault();
+          openPicker(control);
+          const selected = menu.querySelector('.picker-option[aria-selected="true"]');
+          (event.key === "ArrowUp" ? menu.lastElementChild : selected || menu.firstElementChild)?.focus();
+        }
+      });
+    };
+    enhanceSelect($("#group-select"));
+    enhanceSelect($("#satellite-select"));
+    document.addEventListener("pointerdown", (event) => {
+      customSelects.forEach((control) => {
+        if (!control.menu.contains(event.target) && !control.trigger.contains(event.target) && control.trigger.getAttribute("aria-expanded") === "true") closePicker(control);
+      });
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") customSelects.forEach((control) => { if (control.trigger.getAttribute("aria-expanded") === "true") closePicker(control, true); });
+    });
+    document.querySelectorAll("button").forEach((button) => {
+      button.classList.add("specular-button");
+      const glint = document.createElement("span");
+      glint.className = "specular-glint";
+      glint.setAttribute("aria-hidden", "true");
+      button.prepend(glint);
+      button.addEventListener("pointermove", (event) => {
+        if (event.pointerType === "touch") return;
+        const bounds = button.getBoundingClientRect();
+        button.style.setProperty("--spec-x", `${event.clientX - bounds.left}px`);
+        button.style.setProperty("--spec-y", `${event.clientY - bounds.top}px`);
+      });
+      button.addEventListener("pointerleave", () => button.classList.remove("specular-pressed"));
+      button.addEventListener("pointerdown", () => button.classList.add("specular-pressed"));
+      button.addEventListener("pointerup", () => button.classList.remove("specular-pressed"));
+    });
+    document.querySelectorAll(".overview-card, .metric-card, .rf-result-card, .rf-panel, .pass-table-wrap").forEach((card) => {
+      card.classList.add("cursor-lit-card");
+      const canTilt = card.matches(".overview-card, .metric-card, .rf-result-card");
+      card.addEventListener("pointermove", (event) => {
+        if (event.pointerType === "touch") return;
+        const bounds = card.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) / bounds.width;
+        const y = (event.clientY - bounds.top) / bounds.height;
+        card.style.setProperty("--spot-x", `${x * 100}%`);
+        card.style.setProperty("--spot-y", `${y * 100}%`);
+        if (canTilt) {
+          card.style.setProperty("--tilt-x", `${(x - .5) * 1.4}deg`);
+          card.style.setProperty("--tilt-y", `${(.5 - y) * 1.4}deg`);
+        }
+        card.classList.add("is-illuminated");
+      });
+      card.addEventListener("pointerleave", () => {
+        card.classList.remove("is-illuminated");
+        card.style.setProperty("--tilt-x", "0deg");
+        card.style.setProperty("--tilt-y", "0deg");
+      });
+    });
+    const viewMenu = $("#view-menu"), viewTrigger = $("#view-select-trigger");
+    let menuCloseTimer = 0;
+    const closeViewMenu = () => {
+      if (!viewMenu || !viewTrigger || viewMenu.hidden) return;
+      window.clearTimeout(menuCloseTimer);
+      viewMenu.classList.remove("open");
+      viewTrigger.setAttribute("aria-expanded", "false");
+      menuCloseTimer = window.setTimeout(() => { if (!viewMenu.classList.contains("open")) viewMenu.hidden = true; }, 220);
+    };
+    const openViewMenu = (focusActive = false) => {
+      if (!viewMenu || !viewTrigger) return;
+      window.clearTimeout(menuCloseTimer);
+      viewMenu.hidden = false;
+      requestAnimationFrame(() => viewMenu.classList.add("open"));
+      viewTrigger.setAttribute("aria-expanded", "true");
+      if (focusActive) viewMenu.querySelector(".tab-button.active")?.focus();
+    };
+    // setTab closes the menu after its event handlers have been installed.
+    window.closeSatlinkViewMenu = closeViewMenu;
+    viewTrigger?.addEventListener("click", () => viewMenu.hidden ? openViewMenu() : closeViewMenu());
+    viewTrigger?.addEventListener("keydown", (event) => {
+      if (["ArrowDown", "Enter", " "].includes(event.key)) { event.preventDefault(); openViewMenu(true); }
+      if (event.key === "Escape") closeViewMenu();
+    });
+    viewMenu?.querySelectorAll(".tab-button").forEach((button) => {
+      button.addEventListener("click", () => setTab(button.dataset.tab));
+      button.addEventListener("keydown", (event) => {
+        const options = [...viewMenu.querySelectorAll(".tab-button")];
+        const index = options.indexOf(button);
+        let next = null;
+        if (event.key === "ArrowDown") next = (index + 1) % options.length;
+        if (event.key === "ArrowUp") next = (index - 1 + options.length) % options.length;
+        if (event.key === "Home") next = 0;
+        if (event.key === "End") next = options.length - 1;
+        if (next !== null) { event.preventDefault(); options[next].focus(); }
+        if (event.key === "Escape") { event.preventDefault(); closeViewMenu(); viewTrigger.focus(); }
+      });
+    });
+    document.addEventListener("pointerdown", (event) => { if (viewMenu && !viewMenu.contains(event.target) && !viewTrigger.contains(event.target)) closeViewMenu(); });
     const closeSidebar = () => {
       document.body.classList.add("sidebar-collapsed"); $("#sidebar").classList.add("hidden"); $("#sidebar-open").classList.add("visible");
       $("#sidebar-open").setAttribute("aria-expanded", "true"); $("#sidebar-close").setAttribute("aria-expanded", "false"); $("#sidebar-open").focus();
@@ -415,9 +654,15 @@
       document.body.classList.remove("sidebar-collapsed"); $("#sidebar").classList.remove("hidden"); $("#sidebar-open").classList.remove("visible");
       $("#sidebar-open").setAttribute("aria-expanded", "false"); $("#sidebar-close").setAttribute("aria-expanded", "true"); $("#sidebar-close").focus();
     };
+    // Keep the mission controls available as a compact drawer so the orbital canvas owns the stage.
+    document.body.classList.add("sidebar-collapsed");
+    $("#sidebar").classList.add("hidden");
+    $("#sidebar-open").classList.add("visible");
+    $("#sidebar-open").setAttribute("aria-expanded", "true");
+    $("#sidebar-close").setAttribute("aria-expanded", "false");
     $("#sidebar-close").addEventListener("click", closeSidebar);
     $("#sidebar-open").addEventListener("click", openSidebar);
-    window.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("#sidebar").classList.contains("hidden")) closeSidebar(); });
+    window.addEventListener("keydown", (event) => { if (event.key === "Escape" && viewMenu && !viewMenu.hidden) { closeViewMenu(); return; } if (event.key === "Escape" && !$("#sidebar").classList.contains("hidden")) closeSidebar(); });
     $("#group-select").addEventListener("change", async (event) => {
       const previousGroup = state.group;
       state.group = event.target.value;
@@ -442,19 +687,6 @@
       input.value = decimals ? next.toFixed(decimals) : String(next);
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }));
-    document.querySelectorAll(".tab-button").forEach((button) => {
-      button.addEventListener("click", () => setTab(button.dataset.tab));
-      button.addEventListener("keydown", (event) => {
-        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-        event.preventDefault();
-        const tabs = [...document.querySelectorAll(".tab-button")];
-        const index = tabs.indexOf(button);
-        const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
-          : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-        setTab(tabs[next].dataset.tab);
-        tabs[next].focus();
-      });
-    });
     $("#rf-form").addEventListener("submit", (event) => { event.preventDefault(); calculateRf(); });
     $("#rf-form").addEventListener("input", () => {
       window.clearTimeout(state.rfTimer);
@@ -488,6 +720,8 @@
 
   function updateClock() {
     $("#hud-clock").textContent = `${new Date().toISOString().slice(11, 19)} UTC`;
+    const topbarClock = $("#topbar-clock");
+    if (topbarClock) topbarClock.textContent = `${new Date().toISOString().slice(11, 16)} UTC`;
     if (state.countdownTarget) {
       const seconds = Math.max(0, state.countdownTarget - Math.floor(Date.now() / 1000));
       if (seconds === 0) loadMission();
