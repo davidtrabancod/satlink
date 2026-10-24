@@ -2,7 +2,11 @@
   const $ = (selector) => document.querySelector(selector);
   const stage = $("#radar-stage"), canvas = $("#radar-canvas");
   if (!stage || !canvas) return;
-  const context = canvas.getContext("2d", { alpha: false });
+  const screenContext = canvas.getContext("2d", { alpha: false });
+  const terrainCanvas = document.createElement("canvas");
+  const terrainContext = terrainCanvas.getContext("2d", { alpha: false });
+  const terrainCache = { width: 0, height: 0, pad: 0, zoom: 0, scale: 0, panX: 0, panY: 0, dpr: 0, dirty: true };
+  let context = screenContext;
   const colors = { stations: "#e5fb9a", starlink: "#78e2ee", geo: "#bca9ff", active: "#89a8c5" };
   const groups = Object.keys(colors);
   const maxZoom = 256;
@@ -41,11 +45,16 @@
     const ring = $("#radar-selected-ring"), position = selectedPosition(now);
     if (position) {
       const [x, y] = project(position.longitude, position.latitude);
-      ring.hidden = x < -35 || x > radar.map.width + 35 || y < -35 || y > radar.map.height + 35;
-      ring.style.left = `${x}px`;
-      ring.style.top = `${y}px`;
+      const visible = x >= -35 && x <= radar.map.width + 35 && y >= -35 && y <= radar.map.height + 35;
+      if (ring.hidden === visible) ring.hidden = !visible;
+      if (visible) {
+        ring.style.left = `${x}px`;
+        ring.style.top = `${y}px`;
+      }
     }
-    radar.ringFrame = requestAnimationFrame(moveSelectedRing);
+    if (radar.selectedMotion && now - radar.selectedMotion.start < radar.selectedMotion.duration) {
+      radar.ringFrame = requestAnimationFrame(moveSelectedRing);
+    }
   }
   function startSelectedRing() {
     if (radar.active && !radar.ringFrame) radar.ringFrame = requestAnimationFrame(moveSelectedRing);
@@ -145,6 +154,7 @@
   }
 
   function scheduleDraw() {
+    startSelectedRing();
     if (!radar.active || radar.frame) return;
     radar.frame = requestAnimationFrame(() => { radar.frame = 0; draw(); });
   }
@@ -205,6 +215,7 @@
       topoInFlight -= 1;
       tile.ready = !failed;
       tile.failed = failed;
+      terrainCache.dirty = true;
       scheduleDraw();
     };
     image.onload = () => done(false);
@@ -299,12 +310,8 @@
     context.setLineDash([]);
   }
 
-  function draw() {
+  function drawTerrain() {
     const { width, height } = radar.map;
-    if (!width || !height) return;
-    updateLatitudeLabels();
-    const dpr = canvas.width / width;
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
     const ocean = context.createRadialGradient(width * .53, height * .43, 0, width * .5, height * .5, Math.max(width, height) * .78);
     ocean.addColorStop(0, "#10324b"); ocean.addColorStop(.55, "#081e32"); ocean.addColorStop(1, "#051320");
     context.fillStyle = ocean;
@@ -324,13 +331,61 @@
     context.stroke();
     drawWorld();
     drawTopography();
+  }
+
+  function renderTerrainCache() {
+    const map = radar.map;
+    const width = map.width, height = map.height;
+    const pad = Math.round(Math.min(width, height) * .4);
+    const cacheWidth = width + 2 * pad, cacheHeight = height + 2 * pad;
+    const dpr = canvas.width / width;
+    terrainCanvas.width = Math.round(cacheWidth * dpr);
+    terrainCanvas.height = Math.round(cacheHeight * dpr);
+    terrainCache.width = width;
+    terrainCache.height = height;
+    terrainCache.pad = pad;
+    terrainCache.zoom = map.zoom;
+    terrainCache.scale = map.scale;
+    terrainCache.panX = map.panX;
+    terrainCache.panY = map.panY;
+    terrainCache.dpr = dpr;
+    terrainCache.dirty = false;
+    map.width = cacheWidth;
+    map.height = cacheHeight;
+    context = terrainContext;
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawTerrain();
+    context = screenContext;
+    map.width = width;
+    map.height = height;
+  }
+
+  function draw() {
+    const { width, height, zoom, scale, panX, panY } = radar.map;
+    if (!width || !height) return;
+    updateLatitudeLabels();
+    const dpr = canvas.width / width;
+    const geometryChanged = terrainCache.width !== width || terrainCache.height !== height
+      || terrainCache.zoom !== zoom || terrainCache.scale !== scale || terrainCache.dpr !== dpr;
+    const outsideCache = Math.abs(panX - terrainCache.panX) > terrainCache.pad
+      || Math.abs(panY - terrainCache.panY) > terrainCache.pad;
+    if (geometryChanged || outsideCache || (terrainCache.dirty && !radar.drag?.moved)) renderTerrainCache();
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.drawImage(terrainCanvas,
+      panX - terrainCache.panX - terrainCache.pad,
+      panY - terrainCache.panY - terrainCache.pad,
+      terrainCanvas.width / terrainCache.dpr,
+      terrainCanvas.height / terrainCache.dpr);
     drawTrack();
 
     const grouped = { stations: [], starlink: [], geo: [], active: [] };
     radar.points = [];
+    const [west, north] = unproject(-8, -8);
+    const [east, south] = unproject(width + 8, height + 8);
     for (const satellite of radar.filtered) {
+      if (satellite.longitude < west || satellite.longitude > east
+          || satellite.latitude > north || satellite.latitude < south) continue;
       const [x, y] = project(satellite.longitude, satellite.latitude);
-      if (x < -8 || x > width + 8 || y < -8 || y > height + 8) continue;
       const point = { x, y, satellite };
       radar.points.push(point);
       (grouped[satellite.group] || grouped.active).push(point);
@@ -469,7 +524,7 @@
     if (radar.world || radar.worldLoading) return radar.worldLoading;
     radar.worldLoading = fetch("/assets/world_110m_admin_0_countries.geojson")
       .then((response) => { if (!response.ok) throw new Error("No se pudo cargar el mapa"); return response.json(); })
-      .then((world) => { radar.world = world; scheduleDraw(); return world; })
+      .then((world) => { radar.world = world; terrainCache.dirty = true; scheduleDraw(); return world; })
       .catch(() => { radar.worldLoading = null; });
     return radar.worldLoading;
   }
@@ -570,13 +625,14 @@
     if (!radar.drag) return;
     const moved = radar.drag.moved;
     radar.drag = null;
+    if (moved) scheduleDraw();
     if (!moved) {
       const [x, y] = pointerPosition(event);
       const point = nearest(x, y);
       if (point) selectSatellite(point.satellite);
     }
   });
-  canvas.addEventListener("pointercancel", () => { radar.drag = null; });
+  canvas.addEventListener("pointercancel", () => { radar.drag = null; scheduleDraw(); });
   canvas.addEventListener("pointerleave", () => { if (!radar.drag) $("#radar-hover").hidden = true; });
   canvas.addEventListener("wheel", (event) => {
     event.preventDefault();
