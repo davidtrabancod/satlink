@@ -7,7 +7,7 @@
     countdownTarget: null,
     map: { zoom: 1, x: 0, y: 0, width: 1080, height: 540, scale: 1, ox: 0, oy: 0, dpr: 1 },
   };
-  const tabNames = { tracker: "Tracker 2D", globe: "Globo 3D", passes: "Predicción de Pases", rf: "Link Budget & Doppler" };
+  const tabNames = { tracker: "Tracker 2D", globe: "Globo 3D", passes: "Predicción de Pases", rf: "Link Budget & Doppler", radar: "Sat-Radar" };
 
   function showNotice(message, kind = "") {
     const notice = $("#notice");
@@ -164,6 +164,9 @@
     if (activeName) activeName.textContent = tabNames[tab];
     window.closeSatlinkViewMenu?.();
     document.querySelectorAll(".view").forEach((view) => { view.hidden = view.id !== `${tab}-view`; });
+    document.body.classList.toggle("radar-mode", tab === "radar");
+    if (tab === "radar") window.SatRadar?.activate();
+    else window.SatRadar?.deactivate();
     if (["tracker", "globe", "passes", "rf"].includes(tab)) loadMission();
     if (tab === "passes" && state.mission) renderPasses();
     if (tab !== "globe" && state.globe.frame) { cancelAnimationFrame(state.globe.frame); state.globe.frame = 0; }
@@ -410,6 +413,17 @@
   }
 
   function setupEvents() {
+    $("#radar-launch").addEventListener("click", () => setTab("radar"));
+    $("#radar-exit").addEventListener("click", () => setTab("globe"));
+    window.addEventListener("satlink:open-satellite", async (event) => {
+      const { group, name } = event.detail;
+      state.group = group;
+      state.name = name;
+      $("#group-select").value = group;
+      $("#satellite-search").value = name;
+      try { await loadCatalog(); setTab("tracker"); }
+      catch (error) { showNotice(`No se pudo abrir la ficha orbital: ${error.message}`, "error"); }
+    });
     if (window.matchMedia("(pointer: fine)").matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       let pointerFrame = 0;
       let pointerX = window.innerWidth * .72;
@@ -693,14 +707,40 @@
       state.rfTimer = window.setTimeout(calculateRf, 450);
     });
     $("#geolocate").addEventListener("click", () => {
-      if (!navigator.geolocation) { $("#location-status").textContent = "Este navegador no admite geolocalización."; $("#location-status").hidden = false; return; }
-      $("#location-status").hidden = true;
+      const button = $("#geolocate"), label = $("#location-label"), icon = button.querySelector(".location-icon"), status = $("#location-status");
+      const showError = (message) => {
+        button.disabled = false;
+        button.classList.remove("is-loading", "is-success");
+        button.setAttribute("aria-busy", "false");
+        label.textContent = button.classList.contains("using") ? "Ubicación activa" : "Usar mi ubicación";
+        icon.textContent = button.classList.contains("using") ? "✓" : "⌖";
+        status.textContent = message;
+        status.classList.add("is-error");
+        status.hidden = false;
+      };
+      if (!navigator.geolocation) { showError("Este navegador no admite geolocalización."); return; }
+      status.hidden = true;
+      status.classList.remove("is-error");
+      button.disabled = true;
+      button.classList.remove("using", "is-success");
+      button.classList.add("is-loading");
+      button.setAttribute("aria-busy", "true");
+      label.textContent = "Localizando…";
+      icon.textContent = "";
       navigator.geolocation.getCurrentPosition((position) => {
         $("#latitude").value = position.coords.latitude.toFixed(4); $("#longitude").value = position.coords.longitude.toFixed(4);
         if (position.coords.altitude !== null) $("#altitude").value = position.coords.altitude.toFixed(0);
-        $("#location-label").textContent = "USANDO UBICACIÓN"; $("#geolocate").classList.add("using");
-        $("#location-status").textContent = "✓ GPS detectado correctamente"; $("#location-status").hidden = false; loadMission();
-      }, (error) => { $("#location-status").textContent = error.code === 1 ? "Permite el acceso a la ubicación en el navegador." : "No se pudo obtener la ubicación actual."; $("#location-status").hidden = false; }, { enableHighAccuracy: true, timeout: 10000 });
+        button.disabled = false;
+        button.classList.remove("is-loading");
+        button.classList.add("using", "is-success");
+        button.setAttribute("aria-busy", "false");
+        icon.textContent = "✓";
+        label.textContent = "Ubicación activa";
+        window.setTimeout(() => button.classList.remove("is-success"), 1100);
+        loadMission();
+      }, (error) => {
+        showError(error.code === 1 ? "Permite el acceso a la ubicación en el navegador." : "No se pudo obtener la ubicación actual.");
+      }, { enableHighAccuracy: true, timeout: 10000 });
     });
     $("#tracker-canvas").addEventListener("wheel", (event) => {
       event.preventDefault();

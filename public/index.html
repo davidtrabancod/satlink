@@ -9,9 +9,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=satlink-atmosphere-20261024">
-  <link rel="stylesheet" href="/visual-system.css?v=satlink-atmosphere-20261024">
-  <script src="/app.js?v=satlink-atmosphere-20261024" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=sat-radar-v3-20261024">
+  <link rel="stylesheet" href="/visual-system.css?v=sat-radar-v3-20261024">
+  <link rel="stylesheet" href="/radar.css?v=sat-radar-map-polish-v2-20261024">
+  <script src="/app.js?v=sat-radar-v3-20261024" defer></script>
+  <script src="/radar.js?v=sat-radar-map-polish-20261024" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -71,6 +73,7 @@
           <div class="eyebrow"><span class="eyebrow-line"></span> SATLINK · MISSION CONTROL</div>
           <h1>Tu misión,<br><span>en órbita.</span></h1>
           <p>Seguimiento satelital, pases y análisis de enlace desde una sola consola.</p>
+          <button id="radar-launch" class="radar-launch" type="button"><span class="radar-launch-icon" aria-hidden="true">✦</span><span>Usar Sat-Radar</span><span class="radar-launch-arrow" aria-hidden="true">↗</span></button>
         </div>
 
         <div class="view-switcher">
@@ -79,11 +82,12 @@
             <span class="trigger-icon" aria-hidden="true">◉</span><span id="active-view-name">Globo 3D</span><svg class="chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div id="view-menu" class="view-menu" role="listbox" aria-label="Funciones de SatLink" hidden>
-            <div class="menu-caption">EXPLORA LA MISIÓN<span>04 VISTAS</span></div>
+            <div class="menu-caption">EXPLORA LA MISIÓN<span>05 VISTAS</span></div>
             <button class="tab-button" id="tab-tracker" type="button" role="option" aria-selected="false" aria-controls="tracker-view" tabindex="-1" data-tab="tracker"><span class="option-index">01</span><span class="option-symbol">⌖</span><span class="option-copy"><strong>Tracker 2D</strong><small>Trayectoria sobre el mapa</small></span><span class="option-arrow">↗</span></button>
             <button class="tab-button active" id="tab-globe" type="button" role="option" aria-selected="true" aria-controls="globe-view" tabindex="-1" data-tab="globe"><span class="option-index">02</span><span class="option-symbol">◎</span><span class="option-copy"><strong>Globo 3D</strong><small>Órbita en tiempo real</small></span><span class="option-arrow">↗</span></button>
             <button class="tab-button" id="tab-passes" type="button" role="option" aria-selected="false" aria-controls="passes-view" tabindex="-1" data-tab="passes"><span class="option-index">03</span><span class="option-symbol">◷</span><span class="option-copy"><strong>Predicción de pases</strong><small>Ventanas de visibilidad</small></span><span class="option-arrow">↗</span></button>
             <button class="tab-button" id="tab-rf" type="button" role="option" aria-selected="false" aria-controls="rf-view" tabindex="-1" data-tab="rf"><span class="option-index">04</span><span class="option-symbol">⌁</span><span class="option-copy"><strong>Link budget &amp; Doppler</strong><small>Rendimiento de radiofrecuencia</small></span><span class="option-arrow">↗</span></button>
+            <button class="tab-button" id="tab-radar" type="button" role="option" aria-selected="false" aria-controls="radar-view" tabindex="-1" data-tab="radar"><span class="option-index">05</span><span class="option-symbol">✦</span><span class="option-copy"><strong>Sat-Radar</strong><small>Constelaciones en tiempo real</small></span><span class="option-arrow">↗</span></button>
             <div class="menu-hint">Selecciona una vista <kbd>ESC</kbd></div>
           </div>
         </div>
@@ -96,6 +100,43 @@
         <article class="overview-card"><span class="overview-label">ESTACIÓN TERRESTRE</span><strong id="hud-station">43.54°, −5.66°</strong><small>COORDENADAS GS</small></article>
         <article class="overview-card pass-card"><span class="overview-label" id="hud-pass-label">PRÓXIMO PASE</span><strong id="hud-countdown">Calculando…</strong><small>AOS · TIEMPO RESTANTE</small></article>
         <article class="overview-card clock-card"><span class="overview-label">HORA UNIVERSAL</span><strong id="hud-clock">--:--:-- UTC</strong><small>RELOJ DE MISIÓN</small></article>
+      </section>
+
+      <section id="radar-view" class="view radar-view" role="tabpanel" aria-labelledby="tab-radar" hidden>
+        <div class="radar-intro">
+          <div class="radar-intro-copy"><div class="radar-eyebrow"><span class="radar-live-dot"></span> SAT-RADAR / OBSERVACIÓN GLOBAL</div><h2>El cielo, <em>en movimiento.</em></h2><p>Explora las posiciones calculadas de los satélites del catálogo. Selecciona cualquier señal para conocer su órbita.</p></div>
+          <div class="radar-intro-actions"><span class="radar-count-label">OBJETOS VISIBLES</span><strong id="radar-total">—</strong><button id="radar-exit" class="radar-back" type="button">Volver al control orbital <span aria-hidden="true">↗</span></button></div>
+        </div>
+        <div class="radar-toolbar">
+          <div class="radar-filters" role="group" aria-label="Grupos visibles: pulsa cada grupo para mostrarlo u ocultarlo">
+            <span class="radar-filters-label" aria-hidden="true">CAPAS</span>
+            <button class="radar-filter active" type="button" data-radar-group="all" aria-pressed="true" title="Mostrar todos los grupos">Todos</button>
+            <button class="radar-filter active" type="button" data-radar-group="stations" aria-pressed="true">Estaciones</button>
+            <button class="radar-filter active" type="button" data-radar-group="starlink" aria-pressed="true">Starlink</button>
+            <button class="radar-filter active" type="button" data-radar-group="geo" aria-pressed="true">GEO</button>
+            <button class="radar-filter active" type="button" data-radar-group="active" aria-pressed="true">Activos</button>
+          </div>
+          <div class="radar-search-wrap"><label class="radar-search"><span aria-hidden="true">⌕</span><input id="radar-search" type="search" placeholder="Buscar nombre o NORAD" autocomplete="off" aria-label="Buscar satélite por nombre o número NORAD"><kbd>/</kbd></label><div id="radar-results" class="radar-results" aria-label="Resultados de búsqueda" hidden></div></div>
+        </div>
+        <div class="radar-stage" id="radar-stage">
+          <canvas id="radar-canvas" aria-label="Mapa interactivo de posiciones satelitales; utiliza la búsqueda para seleccionar un satélite"></canvas>
+          <div class="radar-sweep" aria-hidden="true"></div>
+          <div class="radar-map-top"><span><i></i> EN DIRECTO · SGP4</span><span id="radar-timestamp">SINCRONIZANDO…</span></div>
+          <div class="radar-map-side"><span>90° N</span><span>0°</span><span>90° S</span></div>
+          <div id="radar-empty" class="radar-empty" hidden><span aria-hidden="true">◎</span><strong>No hay capas visibles</strong><small>Activa un grupo para ver sus satélites.</small></div>
+          <div id="radar-hover" class="radar-hover" hidden></div>
+          <div id="radar-selected-ring" class="radar-selected-ring" hidden aria-hidden="true"></div>
+          <div class="radar-map-controls"><span id="radar-zoom-label" class="radar-zoom-label" aria-label="Nivel de zoom">1,0×</span><button id="radar-zoom-in" type="button" aria-label="Acercar mapa">+</button><button id="radar-zoom-out" type="button" aria-label="Alejar mapa">−</button><button id="radar-reset" type="button" aria-label="Restablecer mapa">⌖</button></div>
+          <aside id="radar-detail" class="radar-detail" aria-live="polite" hidden>
+            <div class="radar-detail-top"><span id="radar-detail-group">SATÉLITE</span><div class="radar-detail-actions"><span class="radar-detail-live"><i></i> LIVE</span><button id="radar-close-detail" class="radar-detail-close" type="button" aria-label="Cerrar ficha del satélite" title="Cerrar ficha del satélite"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
+            <div class="radar-detail-icon" aria-hidden="true">✦</div>
+            <h3 id="radar-detail-name">—</h3><p id="radar-detail-id">NORAD —</p>
+            <div class="radar-detail-grid"><div><span>LATITUD</span><strong id="radar-detail-lat">—</strong></div><div><span>LONGITUD</span><strong id="radar-detail-lon">—</strong></div><div><span>ALTITUD</span><strong id="radar-detail-alt">—</strong></div><div><span>VELOCIDAD</span><strong id="radar-detail-speed">—</strong></div><div><span>INCLINACIÓN</span><strong id="radar-detail-inc">—</strong></div><div><span>PERIODO</span><strong id="radar-detail-period">—</strong></div></div>
+            <button id="radar-open-satellite" class="radar-open-satellite" type="button">Abrir ficha orbital <span aria-hidden="true">↗</span></button>
+          </aside>
+          <div class="radar-map-bottom"><div class="radar-legend"><span data-radar-legend="stations"><i class="radar-legend-dot stations"></i> ESTACIONES</span><span data-radar-legend="starlink"><i class="radar-legend-dot starlink"></i> STARLINK</span><span data-radar-legend="geo"><i class="radar-legend-dot geo"></i> GEO</span><span data-radar-legend="active"><i class="radar-legend-dot active"></i> OTROS ACTIVOS</span></div><span id="radar-coordinates">MOVER CURSOR PARA EXPLORAR</span></div>
+        </div>
+        <div class="radar-foot"><span id="radar-status" role="status" aria-live="polite">Preparando red orbital…</span><span>POSICIONES PROPAGADAS DESDE TLE · ACTUALIZACIÓN CADA 10 S</span></div>
       </section>
 
       <section id="tracker-view" class="view" role="tabpanel" aria-labelledby="tab-tracker" hidden>

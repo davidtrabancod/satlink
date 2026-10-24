@@ -357,3 +357,81 @@ body { font-size: 14px; line-height: 1.5; }
   .pass-table th, .pass-table td { font-size: 10px; }
   .site-footer { font-size: 8px; }
 }
+
+/* Location control: visible acquisition state and a distinct success pulse. */
+.location-button {
+  min-height: 46px;
+  border-color: rgba(117, 223, 223, .22);
+  border-radius: 12px;
+  background: linear-gradient(110deg, rgba(117, 223, 223, .1), rgba(117, 223, 223, .025));
+  transition: border-color .24s ease, background .24s ease, box-shadow .3s ease, transform .24s ease;
+}
+.location-button:disabled { cursor: progress; }
+.location-icon {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  place-items: center;
+  border: 1px solid rgba(117, 223, 223, .18);
+  border-radius: 8px;
+  background: rgba(117, 223, 223, .08);
+  font-size: 16px;
+  line-height: 1;
+  transition: color .2s ease, background .2s ease, border-color .2s ease;
+}
+.location-button.is-loading {
+  border-color: rgba(117, 223, 223, .48);
+  background: linear-gradient(110deg, rgba(117, 223, 223, .16), rgba(117, 223, 223, .055));
+  box-shadow: 0 0 0 3px rgba(117, 223, 223, .055), 0 0 28px rgba(77, 211, 213, .12), inset 0 1px rgba(255,255,255,.07);
+}
+.location-button.is-loading::after { animation: location-scan 1.3s ease-in-out infinite; }
+.location-button.is-loading .location-icon {
+  position: relative;
+  border-color: transparent;
+  background: transparent;
+  color: transparent;
+  font-size: 0;
+}
+.location-button.is-loading .location-icon::before {
+  position: absolute;
+  inset: 3px;
+  border: 2px solid rgba(117, 223, 223, .2);
+  border-top-color: #a5ffff;
+  border-right-color: #75dfdf;
+  border-radius: 50%;
+  content: "";
+  animation: location-spin .72s linear infinite;
+  filter: drop-shadow(0 0 5px rgba(117,223,223,.6));
+}
+.location-button.is-loading .button-arrow { opacity: .38; animation: location-wait 1s ease-in-out infinite; }
+.location-button.using {
+  border-color: rgba(168, 231, 166, .28);
+  background: linear-gradient(110deg, rgba(125, 208, 157, .12), rgba(117, 223, 223, .035));
+  color: #e3ffeb;
+}
+.location-button.using .location-icon {
+  border-color: rgba(178, 244, 180, .28);
+  background: rgba(154, 238, 163, .12);
+  color: #baffbd;
+}
+.location-button.is-success { animation: location-success-glow .9s cubic-bezier(.16,1,.3,1) both; }
+.location-button.is-success .location-icon { animation: location-check .55s cubic-bezier(.16,1,.3,1) both; }
+.location-status.is-error {
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 153, 167, .17);
+  border-radius: 9px;
+  background: rgba(108, 43, 63, .16);
+  color: #ffb5c0;
+  animation: location-error-in .25s ease both;
+}
+@keyframes location-spin { to { transform: rotate(360deg); } }
+@keyframes location-scan { 0%, 100% { transform: translateX(-110%); } 50% { transform: translateX(110%); } }
+@keyframes location-wait { 50% { opacity: .72; transform: translateY(-2px); } }
+@keyframes location-check { 0% { transform: scale(.6) rotate(-18deg); opacity: 0; } 65% { transform: scale(1.18) rotate(5deg); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes location-success-glow { 0% { box-shadow: 0 0 0 0 rgba(163, 244, 177, .32), 0 0 0 rgba(117,223,223,0); } 60% { box-shadow: 0 0 0 5px rgba(163,244,177,0), 0 0 32px rgba(117,223,223,.2); } 100% { box-shadow: 0 0 0 0 rgba(163,244,177,0), 0 0 15px rgba(117,223,223,.08); } }
+@keyframes location-error-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .location-button, .location-button.is-success, .location-status.is-error { animation: none !important; transition: none !important; }
+  .location-button.is-loading::after, .location-button.is-loading .location-icon::before, .location-button.is-loading .button-arrow { animation: none !important; }
+}

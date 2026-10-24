@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -18,10 +19,14 @@ from satlink.core.fetcher import fetch_tle_by_group  # noqa: E402
 from satlink.core.link_budget import GroundStationReceiver, LinkBudgetCalculator, SatelliteTransmitter  # noqa: E402
 from satlink.core.passes import PassPredictor  # noqa: E402
 from satlink.core.propagator import EARTH_RADIUS_KM, OrbitPropagator, latlon_to_cartesian  # noqa: E402
+from satlink.core.radar import propagate_radar  # noqa: E402
 
 PUBLIC = ROOT / "public"
 GROUPS = {"stations", "starlink", "geo", "active"}
 _catalog_cache: dict[str, tuple[float, list[dict]]] = {}
+_radar_cache: dict[str, tuple[float, dict]] = {}
+_radar_lock = threading.Lock()
+RADAR_GROUPS = ("stations", "starlink", "geo", "active")
 
 app = FastAPI(title="SatLink Studio API", docs_url=None, redoc_url=None)
 
@@ -90,6 +95,52 @@ def get_catalog(
             for satellite in matches[:limit]
         ],
     }
+
+
+@app.get("/api/radar")
+def get_radar(response: Response, group: str = Query("all")):
+    """Current positions for every indexed object in a group or their union."""
+    if group != "all" and group not in GROUPS:
+        raise HTTPException(status_code=400, detail="Grupo Sat-Radar no válido")
+    response.headers["Cache-Control"] = "public, max-age=5"
+    response.headers["Vercel-CDN-Cache-Control"] = "public, max-age=8"
+    now = datetime.now(timezone.utc)
+    with _radar_lock:
+        cached = _radar_cache.get(group)
+        if cached and now.timestamp() - cached[0] < 8:
+            return cached[1]
+
+        chosen_groups = RADAR_GROUPS if group == "all" else (group,)
+        catalogs = []
+        unavailable_groups = []
+        stale_dates = []
+        for selected_group in chosen_groups:
+            try:
+                satellites = _catalog(selected_group)
+            except HTTPException:
+                unavailable_groups.append(selected_group)
+                continue
+            catalogs.append((selected_group, satellites))
+            if satellites[0].get("_tle_stale"):
+                stale_dates.append(satellites[0].get("_tle_fetched_at"))
+
+        if not catalogs:
+            raise HTTPException(status_code=503, detail="No hay catálogos disponibles para Sat-Radar")
+
+        result = propagate_radar(catalogs, now)
+        if not result["satellites"]:
+            raise HTTPException(status_code=503, detail="No se pudieron calcular posiciones orbitales")
+        result.update({
+            "group": group,
+            "generated_at": now.isoformat(),
+            "refresh_seconds": 10,
+            "stale": bool(stale_dates),
+            "fetched_at": datetime.fromtimestamp(min(date for date in stale_dates if date), timezone.utc).isoformat()
+            if any(stale_dates) else None,
+            "unavailable_groups": unavailable_groups,
+        })
+        _radar_cache[group] = (now.timestamp(), result)
+        return result
 
 
 @lru_cache(maxsize=64)
