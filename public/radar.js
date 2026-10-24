@@ -5,7 +5,13 @@
   const context = canvas.getContext("2d", { alpha: false });
   const colors = { stations: "#e5fb9a", starlink: "#78e2ee", geo: "#bca9ff", active: "#89a8c5" };
   const groups = Object.keys(colors);
-  const maxZoom = 64;
+  const maxZoom = 256;
+  const topoThreshold = 8;
+  const viewParams = new URLSearchParams(window.location.search);
+  const initialCenter = viewParams.get("radarCenter")?.split(",").map(Number);
+  const initialZoom = Number(viewParams.get("radarZoom"));
+  const topoTiles = new Map();
+  let topoInFlight = 0;
   const groupNames = { stations: "GRUPO ESTACIONES", starlink: "STARLINK", geo: "ÓRBITA GEO", active: "SATÉLITE ACTIVO" };
   const radar = {
     active: false, visibleGroups: new Set(groups), satellites: [], filtered: [], searchOpen: false, world: null, worldLoading: null,
@@ -65,6 +71,12 @@
     radar.map.scale = Math.min(width / 360, height / 180) * .96;
     if (!radar.map.initialized) {
       radar.map.zoom = width < 680 ? 1.55 : 1;
+      if (initialCenter?.length === 2 && Number.isFinite(initialCenter[0]) && Number.isFinite(initialCenter[1])
+          && Math.abs(initialCenter[0]) <= 85 && Math.abs(initialCenter[1]) <= 180) {
+        radar.map.zoom = Number.isFinite(initialZoom) && initialZoom > 1 ? Math.min(maxZoom, initialZoom) : 16;
+        radar.map.panX = -initialCenter[1] * radar.map.scale * radar.map.zoom;
+        radar.map.panY = initialCenter[0] * radar.map.scale * radar.map.zoom;
+      }
       radar.map.initialized = true;
     }
     clampPan();
@@ -80,6 +92,13 @@
   function unproject(x, y) {
     const { width, height, scale, zoom, panX, panY } = radar.map;
     return [(x - width / 2 - panX) / (scale * zoom), -(y - height / 2 - panY) / (scale * zoom)];
+  }
+
+  function updateLatitudeLabels() {
+    stage.querySelectorAll(".radar-map-side span").forEach((label, index) => {
+      const latitude = Math.max(-90, Math.min(90, unproject(0, radar.map.height * index / 2)[1]));
+      label.textContent = `${format(Math.abs(latitude), 1)}° ${latitude < 0 ? "S" : "N"}`;
+    });
   }
 
   function clampPan() {
@@ -133,6 +152,71 @@
     context.stroke();
   }
 
+  function tileLatitude(y, count) {
+    return Math.atan(Math.sinh(Math.PI * (1 - 2 * y / count))) * 180 / Math.PI;
+  }
+
+  function tileY(latitude, count) {
+    const radians = Math.max(-85.0511, Math.min(85.0511, latitude)) * Math.PI / 180;
+    return Math.floor((1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) * count / 2);
+  }
+
+  function requestTopoTile(z, x, y) {
+    if (topoInFlight >= 8) return null;
+    const key = `${z}/${x}/${y}`;
+    const image = new Image();
+    const tile = { image, ready: false, failed: false };
+    topoTiles.set(key, tile);
+    topoInFlight += 1;
+    const done = (failed) => {
+      topoInFlight -= 1;
+      tile.ready = !failed;
+      tile.failed = failed;
+      scheduleDraw();
+    };
+    image.onload = () => done(false);
+    image.onerror = () => done(true);
+    image.decoding = "async";
+    image.src = `https://${["a", "b", "c"][(x + y) % 3]}.tile.opentopomap.org/${key}.png`;
+    while (topoTiles.size > 96) topoTiles.delete(topoTiles.keys().next().value);
+    return tile;
+  }
+
+  function drawTopography() {
+    const credit = $("#radar-topo-credit");
+    const enabled = radar.map.zoom >= topoThreshold;
+    credit.hidden = !enabled;
+    if (!enabled) return;
+    const { width, height, scale, zoom } = radar.map;
+    const tileZoom = Math.min(12, Math.max(2, Math.ceil(Math.log2(360 * scale * zoom / 256))));
+    const count = 2 ** tileZoom;
+    const [west, north] = unproject(0, 0);
+    const [east, south] = unproject(width, height);
+    const minX = Math.max(0, Math.floor((Math.max(-180, west) + 180) / 360 * count));
+    const maxX = Math.min(count - 1, Math.floor((Math.min(179.999999, east) + 180) / 360 * count));
+    const minY = Math.max(0, tileY(north, count));
+    const maxY = Math.min(count - 1, tileY(south, count));
+    if (minX > maxX || minY > maxY) return;
+
+    context.save();
+    context.globalAlpha = .94;
+    context.filter = "grayscale(1) sepia(1) hue-rotate(155deg) saturate(1.25) brightness(.47) contrast(1.23)";
+    for (let y = minY; y <= maxY; y++) {
+      const northEdge = tileLatitude(y, count), southEdge = tileLatitude(y + 1, count);
+      for (let x = minX; x <= maxX; x++) {
+        const key = `${tileZoom}/${x}/${y}`;
+        let tile = topoTiles.get(key);
+        if (!tile) tile = requestTopoTile(tileZoom, x, y);
+        if (!tile?.ready) continue;
+        const westEdge = x / count * 360 - 180, eastEdge = (x + 1) / count * 360 - 180;
+        const [left, top] = project(westEdge, northEdge);
+        const [right, bottom] = project(eastEdge, southEdge);
+        context.drawImage(tile.image, left, top, right - left + .5, bottom - top + .5);
+      }
+    }
+    context.restore();
+  }
+
   function drawTrack() {
     if (!radar.track?.length) return;
     context.beginPath();
@@ -156,6 +240,7 @@
   function draw() {
     const { width, height } = radar.map;
     if (!width || !height) return;
+    updateLatitudeLabels();
     const dpr = canvas.width / width;
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     const ocean = context.createRadialGradient(width * .53, height * .43, 0, width * .5, height * .5, Math.max(width, height) * .78);
@@ -176,6 +261,7 @@
     }
     context.stroke();
     drawWorld();
+    drawTopography();
     drawTrack();
 
     const grouped = { stations: [], starlink: [], geo: [], active: [] };

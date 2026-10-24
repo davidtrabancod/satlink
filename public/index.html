@@ -11,9 +11,9 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css?v=sat-radar-v3-20261024">
   <link rel="stylesheet" href="/visual-system.css?v=sat-radar-v3-20261024">
-  <link rel="stylesheet" href="/radar.css?v=sat-radar-map-polish-v2-20261024">
+  <link rel="stylesheet" href="/radar.css?v=sat-radar-topography-v2-20261024">
   <script src="/app.js?v=sat-radar-v3-20261024" defer></script>
-  <script src="/radar.js?v=sat-radar-map-polish-20261024" defer></script>
+  <script src="/radar.js?v=sat-radar-topography-256x-20261024" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -134,6 +134,7 @@
             <div class="radar-detail-grid"><div><span>LATITUD</span><strong id="radar-detail-lat">—</strong></div><div><span>LONGITUD</span><strong id="radar-detail-lon">—</strong></div><div><span>ALTITUD</span><strong id="radar-detail-alt">—</strong></div><div><span>VELOCIDAD</span><strong id="radar-detail-speed">—</strong></div><div><span>INCLINACIÓN</span><strong id="radar-detail-inc">—</strong></div><div><span>PERIODO</span><strong id="radar-detail-period">—</strong></div></div>
             <button id="radar-open-satellite" class="radar-open-satellite" type="button">Abrir ficha orbital <span aria-hidden="true">↗</span></button>
           </aside>
+          <div id="radar-topo-credit" class="radar-topo-credit" hidden>Datos: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>, SRTM · Mapa: © <a href="https://www.opentopomap.org/about" target="_blank" rel="noopener noreferrer">OpenTopoMap</a> (CC-BY-SA)</div>
           <div class="radar-map-bottom"><div class="radar-legend"><span data-radar-legend="stations"><i class="radar-legend-dot stations"></i> ESTACIONES</span><span data-radar-legend="starlink"><i class="radar-legend-dot starlink"></i> STARLINK</span><span data-radar-legend="geo"><i class="radar-legend-dot geo"></i> GEO</span><span data-radar-legend="active"><i class="radar-legend-dot active"></i> OTROS ACTIVOS</span></div><span id="radar-coordinates">MOVER CURSOR PARA EXPLORAR</span></div>
         </div>
         <div class="radar-foot"><span id="radar-status" role="status" aria-live="polite">Preparando red orbital…</span><span>POSICIONES PROPAGADAS DESDE TLE · ACTUALIZACIÓN CADA 10 S</span></div>
