@@ -65,7 +65,9 @@ body.radar-mode .hero, body.radar-mode .mission-overview { display: none; }
 .radar-map-controls button:hover { transform: scale(1.04); border-color: rgba(117,223,223,.6); background: rgba(27,67,82,.94); }
 .radar-hover { position: absolute; z-index: 8; max-width: 220px; padding: 9px 11px; border: 1px solid rgba(161,235,239,.37); border-radius: 9px; background: rgba(7,22,34,.94); color: #e5faff; font-size: 11px; font-weight: 700; box-shadow: 0 13px 35px rgba(0,0,0,.38); pointer-events: none; transform: translate(14px, -100%); backdrop-filter: blur(14px); }
 .radar-hover small { display: block; margin-top: 3px; color: #89b5c7; font: 9px var(--font-map); }
-.radar-selected-ring { position: absolute; z-index: 3; width: 23px; height: 23px; border: 1px solid rgba(221,251,255,.9); border-radius: 50%; box-shadow: 0 0 0 6px rgba(117,223,223,.1), 0 0 24px rgba(117,223,223,.8); pointer-events: none; transform: translate(-50%, -50%); animation: radar-target 2s ease-out infinite; }
+.radar-selected-ring { position: absolute; z-index: 3; width: 23px; height: 23px; border: 1px solid rgba(221,251,255,.86); border-radius: 50%; box-shadow: 0 0 0 4px rgba(117,223,223,.12), 0 0 18px rgba(117,223,223,.55); pointer-events: none; transform: translate(-50%, -50%); }
+.radar-selected-ring::before { content: ""; position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; border-radius: 50%; background: #efffff; box-shadow: 0 0 13px 3px rgba(117,223,223,.7); transform: translate(-50%, -50%); }
+.radar-selected-ring::after { content: ""; position: absolute; inset: -1px; border: 1px solid rgba(158,244,247,.7); border-radius: 50%; opacity: 0; animation: radar-target 2.5s cubic-bezier(.18,.58,.33,1) infinite; will-change: transform, opacity; }
 .radar-detail { position: absolute; z-index: 5; top: 65px; right: 18px; width: min(305px, 31%); max-height: calc(100% - 133px); overflow: auto; padding: 19px; border: 1px solid rgba(152,211,228,.28); border-radius: 17px; background: linear-gradient(155deg, rgba(14,34,50,.94), rgba(6,20,34,.94)); color: #e8f8fd; box-shadow: 0 25px 70px rgba(0,0,0,.35), inset 0 1px rgba(255,255,255,.09), 0 0 40px rgba(71,182,204,.07); backdrop-filter: blur(22px); animation: radar-card-in .42s cubic-bezier(.16,1,.3,1) both; scrollbar-width: thin; }
 .radar-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #89d4dc; font-size: 9px; letter-spacing: .08em; }
 .radar-detail-actions { display: inline-flex; align-items: center; gap: 11px; }
@@ -95,7 +97,7 @@ body.radar-mode .hero, body.radar-mode .mission-overview { display: none; }
 .radar-no-results { margin: 0; padding: 12px; color: #91aebb; font-size: 11px; }
 @keyframes radar-live-pulse { 50% { box-shadow: 0 0 0 7px rgba(183,248,140,0), 0 0 20px rgba(183,248,140,.95); } }
 @keyframes radar-sweep { to { transform: translate(-50%, -50%) rotate(360deg); } }
-@keyframes radar-target { 50% { width: 34px; height: 34px; opacity: .55; box-shadow: 0 0 0 13px rgba(117,223,223,0), 0 0 28px rgba(117,223,223,.45); } }
+@keyframes radar-target { 0% { transform: scale(.85); opacity: 0; } 12% { opacity: .72; } 76%, 100% { transform: scale(2.45); opacity: 0; } }
 @keyframes radar-card-in { from { opacity: 0; transform: translateX(14px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
 @media (max-width: 1100px) { .radar-detail { width: min(280px, 36%); } .radar-map-bottom #radar-coordinates { display: none; } }
 @media (max-width: 760px) {
@@ -107,4 +109,4 @@ body.radar-mode .hero, body.radar-mode .mission-overview { display: none; }
   .radar-foot { flex-direction: column; }
 }
 @media (max-width: 460px) { .radar-view { padding-top: 24px; }.radar-intro h2 { font-size: 40px; }.radar-intro p { font-size: 12px; }.radar-map-top, .radar-map-bottom { right: 11px; left: 11px; font-size: 7px; }.radar-legend { gap: 6px 10px; }.radar-map-side { display: none; }.radar-detail { margin-right: 8px; margin-left: 8px; }.radar-count-label { font-size: 8px; }.radar-empty { top: 235px; } }
-@media (prefers-reduced-motion: reduce) { .radar-live-dot, .radar-map-top i, .radar-detail-live i, .radar-sweep, .radar-selected-ring, .radar-detail { animation: none !important; }.radar-detail-close, .radar-detail-close::before, .radar-detail-close svg { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .radar-live-dot, .radar-map-top i, .radar-detail-live i, .radar-sweep, .radar-selected-ring::after, .radar-detail { animation: none !important; }.radar-detail-close, .radar-detail-close::before, .radar-detail-close svg { transition: none !important; } }

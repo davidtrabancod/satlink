@@ -11,13 +11,14 @@
   const initialCenter = viewParams.get("radarCenter")?.split(",").map(Number);
   const initialZoom = Number(viewParams.get("radarZoom"));
   const topoTiles = new Map();
+  const topoCacheLimit = 256;
   let topoInFlight = 0;
   const groupNames = { stations: "GRUPO ESTACIONES", starlink: "STARLINK", geo: "ÓRBITA GEO", active: "SATÉLITE ACTIVO" };
   const radar = {
     active: false, visibleGroups: new Set(groups), satellites: [], filtered: [], searchOpen: false, world: null, worldLoading: null,
     sourceNote: "",
     selectedId: null, selectionDismissed: false, hoverId: null, points: [], track: null, trackAt: 0, trackController: null,
-    request: null, serial: 0, timer: 0, frame: 0,
+    request: null, serial: 0, timer: 0, frame: 0, ringFrame: 0, selectedMotion: null,
     map: { width: 0, height: 0, scale: 1, zoom: 1, panX: 0, panY: 0, initialized: false },
     drag: null,
   };
@@ -26,6 +27,29 @@
   function format(value, digits = 1) { return Number(value).toLocaleString("es-ES", { minimumFractionDigits: digits, maximumFractionDigits: digits }); }
   function groupColor(group) { return colors[group] || colors.active; }
   function selectedSatellite() { return radar.satellites.find((satellite) => satellite.id === radar.selectedId); }
+  function selectedPosition(now = performance.now()) {
+    const motion = radar.selectedMotion;
+    if (!motion) return null;
+    const progress = Math.min(1, Math.max(0, (now - motion.start) / motion.duration));
+    const longitudeDelta = ((motion.toLon - motion.fromLon + 540) % 360) - 180;
+    const longitude = ((motion.fromLon + longitudeDelta * progress + 540) % 360) - 180;
+    return { latitude: motion.fromLat + (motion.toLat - motion.fromLat) * progress, longitude };
+  }
+  function moveSelectedRing(now) {
+    radar.ringFrame = 0;
+    if (!radar.active || !radar.selectedId) return;
+    const ring = $("#radar-selected-ring"), position = selectedPosition(now);
+    if (position) {
+      const [x, y] = project(position.longitude, position.latitude);
+      ring.hidden = x < -35 || x > radar.map.width + 35 || y < -35 || y > radar.map.height + 35;
+      ring.style.left = `${x}px`;
+      ring.style.top = `${y}px`;
+    }
+    radar.ringFrame = requestAnimationFrame(moveSelectedRing);
+  }
+  function startSelectedRing() {
+    if (radar.active && !radar.ringFrame) radar.ringFrame = requestAnimationFrame(moveSelectedRing);
+  }
   function visibleSatellites() { return radar.satellites.filter((satellite) => radar.visibleGroups.has(satellite.group)); }
   function updateZoomLabel() { $("#radar-zoom-label").textContent = `${format(radar.map.zoom, radar.map.zoom < 10 ? 1 : 0)}×`; }
 
@@ -161,6 +185,15 @@
     return Math.floor((1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) * count / 2);
   }
 
+  function cachedTopoTile(key) {
+    const tile = topoTiles.get(key);
+    if (tile) {
+      topoTiles.delete(key);
+      topoTiles.set(key, tile);
+    }
+    return tile;
+  }
+
   function requestTopoTile(z, x, y) {
     if (topoInFlight >= 8) return null;
     const key = `${z}/${x}/${y}`;
@@ -178,8 +211,34 @@
     image.onerror = () => done(true);
     image.decoding = "async";
     image.src = `https://${["a", "b", "c"][(x + y) % 3]}.tile.opentopomap.org/${key}.png`;
-    while (topoTiles.size > 96) topoTiles.delete(topoTiles.keys().next().value);
+    while (topoTiles.size > topoCacheLimit) topoTiles.delete(topoTiles.keys().next().value);
     return tile;
+  }
+
+  function drawTopoTile(image, z, x, y) {
+    const count = 2 ** z;
+    const [left, top] = project(x / count * 360 - 180, tileLatitude(y, count));
+    const [right, bottom] = project((x + 1) / count * 360 - 180, tileLatitude(y + 1, count));
+    context.drawImage(image, left, top, right - left + .5, bottom - top + .5);
+  }
+
+  function drawCachedTopoParent(z, x, y) {
+    for (let parentZoom = z - 1; parentZoom >= 2; parentZoom--) {
+      const divisor = 2 ** (z - parentZoom);
+      const parentX = Math.floor(x / divisor), parentY = Math.floor(y / divisor);
+      const parent = cachedTopoTile(`${parentZoom}/${parentX}/${parentY}`);
+      if (!parent?.ready) continue;
+      const count = 2 ** z;
+      const [left, top] = project(x / count * 360 - 180, tileLatitude(y, count));
+      const [right, bottom] = project((x + 1) / count * 360 - 180, tileLatitude(y + 1, count));
+      context.save();
+      context.beginPath();
+      context.rect(left, top, right - left + .5, bottom - top + .5);
+      context.clip();
+      drawTopoTile(parent.image, parentZoom, parentX, parentY);
+      context.restore();
+      return;
+    }
   }
 
   function drawTopography() {
@@ -198,21 +257,24 @@
     const maxY = Math.min(count - 1, tileY(south, count));
     if (minX > maxX || minY > maxY) return;
 
+    const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
+    const visibleTiles = [];
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) visibleTiles.push({ x, y });
+    }
+    visibleTiles.sort((a, b) =>
+      (a.x - centerX) ** 2 + (a.y - centerY) ** 2 - (b.x - centerX) ** 2 - (b.y - centerY) ** 2
+    );
+
     context.save();
     context.globalAlpha = .94;
     context.filter = "grayscale(1) sepia(1) hue-rotate(155deg) saturate(1.25) brightness(.47) contrast(1.23)";
-    for (let y = minY; y <= maxY; y++) {
-      const northEdge = tileLatitude(y, count), southEdge = tileLatitude(y + 1, count);
-      for (let x = minX; x <= maxX; x++) {
-        const key = `${tileZoom}/${x}/${y}`;
-        let tile = topoTiles.get(key);
-        if (!tile) tile = requestTopoTile(tileZoom, x, y);
-        if (!tile?.ready) continue;
-        const westEdge = x / count * 360 - 180, eastEdge = (x + 1) / count * 360 - 180;
-        const [left, top] = project(westEdge, northEdge);
-        const [right, bottom] = project(eastEdge, southEdge);
-        context.drawImage(tile.image, left, top, right - left + .5, bottom - top + .5);
-      }
+    for (const { x, y } of visibleTiles) {
+      const key = `${tileZoom}/${x}/${y}`;
+      let tile = cachedTopoTile(key);
+      if (!tile) tile = requestTopoTile(tileZoom, x, y);
+      if (tile?.ready) drawTopoTile(tile.image, tileZoom, x, y);
+      else drawCachedTopoParent(tileZoom, x, y);
     }
     context.restore();
   }
@@ -278,6 +340,7 @@
       if (!points.length) continue;
       context.beginPath();
       for (const point of points) {
+        if (point.satellite.id === radar.selectedId) continue;
         context.moveTo(point.x + radius, point.y);
         context.arc(point.x, point.y, radius, 0, Math.PI * 2);
       }
@@ -293,15 +356,6 @@
       }
     }
     context.globalAlpha = 1;
-    const selectedPoint = radar.points.find((point) => point.satellite.id === radar.selectedId);
-    const ring = $("#radar-selected-ring");
-    ring.hidden = !selectedPoint;
-    if (selectedPoint) {
-      context.beginPath(); context.arc(selectedPoint.x, selectedPoint.y, 4.5, 0, Math.PI * 2);
-      context.fillStyle = "#efffff"; context.shadowColor = groupColor(selectedPoint.satellite.group); context.shadowBlur = 22;
-      context.fill(); context.shadowBlur = 0;
-      ring.style.left = `${selectedPoint.x}px`; ring.style.top = `${selectedPoint.y}px`;
-    }
   }
 
   function nearest(x, y) {
@@ -333,6 +387,9 @@
     radar.track = null;
     radar.trackAt = 0;
     radar.selectedId = null;
+    radar.selectedMotion = null;
+    if (radar.ringFrame) cancelAnimationFrame(radar.ringFrame);
+    radar.ringFrame = 0;
     renderDetail();
     $("#radar-selected-ring").hidden = true;
     scheduleDraw();
@@ -360,6 +417,9 @@
     radar.selectionDismissed = false;
     const changed = radar.selectedId !== satellite.id;
     radar.selectedId = satellite.id;
+    if (changed || !radar.selectedMotion) {
+      radar.selectedMotion = { fromLat: satellite.latitude, fromLon: satellite.longitude, toLat: satellite.latitude, toLon: satellite.longitude, start: performance.now(), duration: 10000 };
+    }
     if (center) {
       const [x, y] = project(satellite.longitude, satellite.latitude);
       radar.map.panX += radar.map.width * .42 - x;
@@ -368,6 +428,7 @@
     }
     renderDetail();
     scheduleDraw();
+    startSelectedRing();
     if (changed || Date.now() - radar.trackAt > 5 * 60 * 1000) loadTrack(satellite);
   }
 
@@ -425,7 +486,16 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || `Error ${response.status}`);
       if (serial !== radar.serial || !radar.active) return;
+      const previousPosition = selectedPosition();
       radar.satellites = result.satellites || [];
+      const updatedSelection = selectedSatellite();
+      if (updatedSelection && previousPosition) {
+        radar.selectedMotion = {
+          fromLat: previousPosition.latitude, fromLon: previousPosition.longitude,
+          toLat: updatedSelection.latitude, toLon: updatedSelection.longitude,
+          start: performance.now(), duration: 10000,
+        };
+      }
       $("#radar-timestamp").textContent = `${new Date(result.generated_at).toISOString().slice(11, 19)} UTC · ACTUALIZADO`;
       const unavailable = result.unavailable_groups?.length ? ` · grupos no disponibles: ${result.unavailable_groups.join(", ")}` : "";
       const stale = result.stale ? " · TLE de respaldo: precisión reducida" : "";
@@ -453,6 +523,8 @@
     radar.trackController?.abort();
     if (radar.frame) cancelAnimationFrame(radar.frame);
     radar.frame = 0;
+    if (radar.ringFrame) cancelAnimationFrame(radar.ringFrame);
+    radar.ringFrame = 0;
     $("#radar-hover").hidden = true;
   }
 
