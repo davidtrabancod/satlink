@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070812">
+  <title>Presupuesto de enlace satelital y efecto Doppler | SatLink Studio</title>
+  <meta name="description" content="Simula un enlace satelital con distancia oblicua, pérdida en espacio libre, potencia recibida, C/N, Eb/N₀, margen y desplazamiento Doppler.">
+  <link rel="canonical" href="https://satlink-studio.vercel.app/enlace-satelital-doppler">
+  <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="SatLink Studio">
+  <meta property="og:title" content="Presupuesto de enlace satelital y efecto Doppler | SatLink Studio">
+  <meta property="og:description" content="Simula un enlace satelital con distancia oblicua, pérdida en espacio libre, potencia recibida, C/N, Eb/N₀, margen y desplazamiento Doppler.">
+  <meta property="og:url" content="https://satlink-studio.vercel.app/enlace-satelital-doppler">
+  <meta property="og:image" content="https://satlink-studio.vercel.app/og-satlink.png">
+  <meta property="og:image:alt" content="SatLink Studio: radar de satélites en directo y control orbital.">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Presupuesto de enlace satelital y efecto Doppler | SatLink Studio">
+  <meta name="twitter:description" content="Simula un enlace satelital con distancia oblicua, pérdida en espacio libre, potencia recibida, C/N, Eb/N₀, margen y desplazamiento Doppler.">
+  <meta name="twitter:image" content="https://satlink-studio.vercel.app/og-satlink.png">
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","name":"Presupuesto de enlace satelital y efecto Doppler | SatLink Studio","url":"https://satlink-studio.vercel.app/enlace-satelital-doppler","description":"Simula un enlace satelital con distancia oblicua, pérdida en espacio libre, potencia recibida, C/N, Eb/N₀, margen y desplazamiento Doppler.","inLanguage":"es","isPartOf":{"@type":"WebSite","name":"SatLink Studio","url":"https://satlink-studio.vercel.app/"}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"SatLink Studio","item":"https://satlink-studio.vercel.app/"},{"@type":"ListItem","position":2,"name":"Enlace satelital y Doppler","item":"https://satlink-studio.vercel.app/enlace-satelital-doppler"}]}]}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/seo-pages.css?v=4">
+  <link rel="stylesheet" href="/card-nav.css?v=5">
+  <script src="/seo-navigation.js?v=1" defer></script>
+  <script src="/card-nav.js?v=4" defer></script>
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+  <header class="site-header"><nav class="sat-card-nav" data-open="false" aria-label="Navegación principal"><div class="card-nav-bar"><button class="card-nav-toggle" type="button" aria-expanded="false" aria-controls="sat-main-menu"><span class="card-nav-lines" aria-hidden="true"><i></i><i></i></span><span class="card-nav-toggle-label">Menú</span></button><a class="card-nav-brand" href="/" aria-label="SatLink Studio, consola"><span class="card-nav-brand-icon" aria-hidden="true">◎</span><span>SATLINK<small>ORBITAL STUDIO</small></span></a><a class="card-nav-quick" data-console-return href="/?view=rf">Volver a la consola <span aria-hidden="true">↗</span></a></div><div class="card-nav-panel" id="sat-main-menu"><a class="card-nav-card" data-console-return href="/?view=rf"><span class="card-nav-index">01 / EXPLORAR <span aria-hidden="true">◎</span></span><strong>Consola</strong><span class="card-nav-description">Radar, globo y herramientas orbitales en una sola vista.</span><span class="card-nav-action">Abrir consola <span aria-hidden="true">↗</span></span></a><a class="card-nav-card is-current" href="/#guias" aria-current="location"><span class="card-nav-index">02 / APRENDER <span aria-hidden="true">✦</span></span><strong>Guías</strong><span class="card-nav-description">Entiende los datos y descubre qué puedes calcular.</span><span class="card-nav-action">Explorar guías <span aria-hidden="true">↗</span></span></a><a class="card-nav-card" href="/about-us"><span class="card-nav-index">03 / PROYECTO <span aria-hidden="true">⌁</span></span><strong>About us</strong><span class="card-nav-description">Conoce SatLink y cómo interpreta las órbitas.</span><span class="card-nav-action">Conocer el proyecto <span aria-hidden="true">↗</span></span></a></div></nav><nav class="guide-nav" aria-label="Guías de SatLink"><span>GUÍAS</span><a href="/radar-de-satelites">Radar de satélites</a><a href="/satelites-en-directo">Satélites en directo</a><a href="/prediccion-de-pases">Predicción de pases</a><a href="/enlace-satelital-doppler" aria-current="page">Enlace satelital y Doppler</a></nav></header>
+  <main id="main">
+    <nav class="breadcrumbs" aria-label="Ruta de navegación"><a data-console-return href="/?view=rf">Consola</a><span aria-hidden="true">/</span><span>Guías</span><span aria-hidden="true">/</span><span aria-current="page">Enlace satelital y Doppler</span></nav>
+    <div class="hero"><div class="orbit-art" aria-hidden="true"><i></i><i></i><i></i><span></span></div><div class="hero-copy"><div class="eyebrow"><span></span>GUÍA · 04 / RADIOFRECUENCIA</div><h1>Enlace satelital y Doppler<em>.</em></h1><p>Estima cómo la geometría orbital y los parámetros de radio afectan a un enlace entre un satélite y tu estación.</p><a class="primary-cta" href="/?view=rf">Abrir Enlace y Doppler <span aria-hidden="true">↗</span></a></div></div>
+    <div class="content-layout"><article class="article">
+      <section><h2>Del satélite a la señal recibida</h2><p>SatLink calcula la distancia oblicua entre el objeto seleccionado y la estación terrestre, la pérdida de propagación en espacio libre, la potencia recibida, la relación portadora/ruido, Eb/N₀ y el margen de enlace. También estima el desplazamiento Doppler a partir de la velocidad radial, para la frecuencia que indiques.</p></section>
+      <section><h2>Parámetros que debes conocer</h2><p>Introduce la frecuencia, la potencia del transmisor, las ganancias y pérdidas de las antenas, el ancho de banda y la temperatura de ruido del sistema. Estos parámetros son supuestos editables: no proceden del TLE ni describen necesariamente el equipo real de un satélite. Un margen positivo en este modelo tampoco garantiza por sí solo una comunicación fiable; pueden intervenir interferencias, polarización, atmósfera, apuntamiento y obstáculos.</p></section>
+      <section><h2>Cómo interpretar el Doppler</h2><p>Cuando la distancia entre satélite y estación cambia, la frecuencia observada se desplaza. El signo y la magnitud de la estimación dependen de si el satélite se aproxima o se aleja y de la frecuencia de operación. El valor mostrado es una ayuda para analizar el escenario, no una corrección automática aplicada a una radio.</p><p>Para elegir una buena ventana temporal, consulta primero la <a href="/prediccion-de-pases">predicción de pases</a>. Puedes revisar la órbita en el <a href="/satelites-en-directo">seguimiento en directo</a>.</p></section></article><aside class="aside"><div class="aside-kicker">HERRAMIENTA RELACIONADA</div><h2>Enlace y Doppler</h2><p>Esta guía explica lo que verás en la consola. Cuando quieras probarlo, abre la herramienta.</p><a class="aside-console" href="/?view=rf">Usar la herramienta <span aria-hidden="true">↗</span></a><a data-console-return href="/?view=rf">Volver a mi vista <span aria-hidden="true">←</span></a></aside></div>
+    <div class="method-note"><strong>Sobre los datos</strong><p>SatLink calcula posiciones mediante propagación orbital a partir de elementos TLE. Las estimaciones no sustituyen datos de telemetría ni información operacional para decisiones críticas. Fuente de elementos orbitales: <a href="https://celestrak.org/" target="_blank" rel="noopener noreferrer">CelesTrak</a>.</p></div>
+  </main>
+  <footer class="site-footer"><span>© SATLINK STUDIO</span><a data-console-return href="/?view=rf">Volver a la consola ↗</a></footer>
+</body>
+</html>

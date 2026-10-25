@@ -9,7 +9,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from skyfield.api import EarthSatellite, load, wgs84
 
 ROOT = Path(__file__).resolve().parent
@@ -29,6 +29,14 @@ _radar_lock = threading.Lock()
 RADAR_GROUPS = ("stations", "starlink", "geo", "active")
 
 app = FastAPI(title="SatLink Studio API", docs_url=None, redoc_url=None)
+
+
+@app.middleware("http")
+async def mark_api_responses_non_indexable(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["X-Robots-Tag"] = "noindex"
+    return response
 
 
 def _catalog(group: str) -> list[dict]:
@@ -54,6 +62,32 @@ def _catalog(group: str) -> list[dict]:
 @app.get("/")
 def home():
     return FileResponse(PUBLIC / "index.html")
+
+
+SEO_PAGES = {
+    "radar-de-satelites",
+    "satelites-en-directo",
+    "prediccion-de-pases",
+    "enlace-satelital-doppler",
+    "about-us",
+}
+
+
+@app.get("/{page_slug}")
+def seo_page(page_slug: str):
+    if page_slug not in SEO_PAGES:
+        candidate = (PUBLIC / page_slug).resolve()
+        if candidate.is_relative_to(PUBLIC.resolve()) and candidate.is_file():
+            return FileResponse(candidate)
+        raise HTTPException(status_code=404, detail="No encontrado")
+    return FileResponse(PUBLIC / "seo" / f"{page_slug}.html")
+
+
+@app.get("/{page_slug}/")
+def seo_page_trailing_slash(page_slug: str):
+    if page_slug not in SEO_PAGES:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    return RedirectResponse(url=f"/{page_slug}", status_code=308)
 
 
 @app.get("/api/catalog")

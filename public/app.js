@@ -8,6 +8,21 @@
     map: { zoom: 1, x: 0, y: 0, width: 1080, height: 540, scale: 1, ox: 0, oy: 0, dpr: 1 },
   };
   const tabNames = { tracker: "Tracker 2D", globe: "Globo 3D", passes: "Predicción de Pases", rf: "Link Budget & Doppler", radar: "Sat-Radar" };
+  const requestedView = new URLSearchParams(window.location.search).get("view");
+  if (Object.hasOwn(tabNames, requestedView)) state.tab = requestedView;
+  try {
+    const previousSelection = JSON.parse(window.sessionStorage.getItem("satlinkSelection") || "null");
+    if (["stations", "starlink", "geo", "active"].includes(previousSelection?.group) && typeof previousSelection.name === "string" && previousSelection.name.length < 100) {
+      state.group = previousSelection.group;
+      state.name = previousSelection.name;
+      $("#group-select").value = state.group;
+      if (state.group !== "stations" || state.name !== "ISS (ZARYA)") $("#satellite-search").value = state.name;
+    }
+  } catch (_) {}
+
+  function rememberSelection() {
+    try { window.sessionStorage.setItem("satlinkSelection", JSON.stringify({ group: state.group, name: state.name })); } catch (_) {}
+  }
 
   function showNotice(message, kind = "") {
     const notice = $("#notice");
@@ -59,6 +74,7 @@
         const preferred = currentOption || state.catalog.find((satellite) => satellite.name === "ISS (ZARYA)") || state.catalog[0];
         state.name = preferred.name;
         select.value = state.name;
+        rememberSelection();
       }
       const total = Number(result.total || 0);
       $("#satellite-count").textContent = total > result.returned
@@ -154,6 +170,7 @@
   function setTab(tab) {
     if (!tabNames[tab]) return;
     state.tab = tab;
+    try { window.sessionStorage.setItem("satlinkActiveView", tab); } catch (_) {}
     document.querySelectorAll(".tab-button").forEach((button) => {
       const active = button.dataset.tab === tab;
       button.classList.toggle("active", active);
@@ -413,7 +430,41 @@
   }
 
   function setupEvents() {
-    $("#radar-launch").addEventListener("click", () => setTab("radar"));
+    let guideScrollFrame = 0;
+    const stopGuideScroll = () => {
+      if (guideScrollFrame) cancelAnimationFrame(guideScrollFrame);
+      guideScrollFrame = 0;
+    };
+    window.addEventListener("wheel", stopGuideScroll, { passive: true });
+    window.addEventListener("touchstart", stopGuideScroll, { passive: true });
+    document.querySelectorAll(".sat-card-nav .card-nav-card[href^='#']").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        const targetId = link.getAttribute("href");
+        const section = $(targetId);
+        if (!section) return;
+        stopGuideScroll();
+        if (window.location.hash !== targetId) window.history.pushState(null, "", targetId);
+        const from = window.scrollY;
+        const destination = Math.min(
+          Math.max(0, section.getBoundingClientRect().top + from - 100),
+          Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
+        );
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          window.scrollTo(0, destination);
+          return;
+        }
+        const duration = 420;
+        const start = performance.now();
+        const animate = (now) => {
+          const progress = Math.min(1, (now - start) / duration);
+          const eased = 1 - (1 - progress) ** 3;
+          window.scrollTo(0, from + (destination - from) * eased);
+          guideScrollFrame = progress < 1 ? requestAnimationFrame(animate) : 0;
+        };
+        guideScrollFrame = requestAnimationFrame(animate);
+      });
+    });
     $("#radar-exit").addEventListener("click", () => setTab("globe"));
     window.addEventListener("satlink:open-satellite", async (event) => {
       const { group, name } = event.detail;
@@ -584,6 +635,7 @@
       if (event.key === "Escape") customSelects.forEach((control) => { if (control.trigger.getAttribute("aria-expanded") === "true") closePicker(control, true); });
     });
     document.querySelectorAll("button").forEach((button) => {
+      if (button.id === "sidebar-open") return;
       button.classList.add("specular-button");
       const glint = document.createElement("span");
       glint.className = "specular-glint";
@@ -662,20 +714,23 @@
     document.addEventListener("pointerdown", (event) => { if (viewMenu && !viewMenu.contains(event.target) && !viewTrigger.contains(event.target)) closeViewMenu(); });
     const closeSidebar = () => {
       document.body.classList.add("sidebar-collapsed"); $("#sidebar").classList.add("hidden"); $("#sidebar-open").classList.add("visible");
-      $("#sidebar-open").setAttribute("aria-expanded", "true"); $("#sidebar-close").setAttribute("aria-expanded", "false"); $("#sidebar-open").focus();
+      $("#sidebar-open").setAttribute("aria-expanded", "false"); $("#sidebar-close").setAttribute("aria-expanded", "false"); $("#sidebar-open").focus();
     };
     const openSidebar = () => {
       document.body.classList.remove("sidebar-collapsed"); $("#sidebar").classList.remove("hidden"); $("#sidebar-open").classList.remove("visible");
-      $("#sidebar-open").setAttribute("aria-expanded", "false"); $("#sidebar-close").setAttribute("aria-expanded", "true"); $("#sidebar-close").focus();
+      $("#sidebar-open").setAttribute("aria-expanded", "true"); $("#sidebar-close").setAttribute("aria-expanded", "true"); $("#sidebar-close").focus();
     };
     // Keep the mission controls available as a compact drawer so the orbital canvas owns the stage.
     document.body.classList.add("sidebar-collapsed");
     $("#sidebar").classList.add("hidden");
     $("#sidebar-open").classList.add("visible");
-    $("#sidebar-open").setAttribute("aria-expanded", "true");
+    $("#sidebar-open").setAttribute("aria-expanded", "false");
     $("#sidebar-close").setAttribute("aria-expanded", "false");
     $("#sidebar-close").addEventListener("click", closeSidebar);
     $("#sidebar-open").addEventListener("click", openSidebar);
+    $("#sidebar-open").addEventListener("pointerdown", (event) => {
+      if (event.button === 0) openSidebar();
+    });
     window.addEventListener("keydown", (event) => { if (event.key === "Escape" && viewMenu && !viewMenu.hidden) { closeViewMenu(); return; } if (event.key === "Escape" && !$("#sidebar").classList.contains("hidden")) closeSidebar(); });
     $("#group-select").addEventListener("change", async (event) => {
       const previousGroup = state.group;
@@ -690,7 +745,7 @@
       window.clearTimeout(state.catalogTimer);
       state.catalogTimer = window.setTimeout(() => loadCatalog({ searchOnly: true }), 250);
     });
-    $("#satellite-select").addEventListener("change", (event) => { state.name = event.target.value; loadMission(); });
+    $("#satellite-select").addEventListener("change", (event) => { state.name = event.target.value; rememberSelection(); loadMission(); });
     $("#elevation-mask").addEventListener("input", (event) => { $("#elevation-value").value = `${event.target.value}°`; });
     ["#latitude", "#longitude", "#altitude", "#elevation-mask"].forEach((selector) => $(selector).addEventListener("change", () => loadMission()));
     document.querySelectorAll("[data-step]").forEach((button) => button.addEventListener("click", () => {
@@ -771,6 +826,8 @@
   }
 
   setupEvents();
+  try { window.sessionStorage.setItem("satlinkActiveView", state.tab); } catch (_) {}
+  if (state.tab !== "globe") setTab(state.tab);
   updateClock();
   window.setInterval(updateClock, 1000);
   window.setInterval(() => { if (["tracker", "globe"].includes(state.tab)) loadMission(); }, 10000);

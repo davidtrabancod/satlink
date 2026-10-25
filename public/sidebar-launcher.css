@@ -1,0 +1,44 @@
+/* Keep the mission drawer above the sticky navigation, including its close control. */
+.sidebar { z-index: 60; }
+.card-nav-host.topbar { padding-left: 0; }
+
+/* A quiet, labelled launcher that reads as settings rather than another menu. */
+button.sidebar-open {
+  position: fixed;
+  z-index: 40;
+  top: auto;
+  right: auto;
+  bottom: 22px;
+  left: 22px;
+  display: none;
+  width: auto;
+  min-width: 116px;
+  height: 47px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  gap: 10px;
+  padding: 0 15px 0 11px;
+  transform: none;
+  border: 1px solid rgba(140, 214, 227, .35);
+  border-radius: 15px;
+  background: linear-gradient(115deg, rgba(21, 49, 65, .94), rgba(11, 27, 46, .95));
+  box-shadow: 0 12px 34px rgba(0, 10, 28, .3), inset 0 1px rgba(220, 249, 255, .08);
+  color: #c6eff0;
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.sidebar-open.visible { display: inline-flex; }
+.sidebar-open svg { display: block; width: 20px; height: 20px; flex: 0 0 20px; color: #8fe0e6; }
+.sidebar-open-label { color: #e1f5f7; font: 700 12px "DM Sans", sans-serif; letter-spacing: .01em; writing-mode: horizontal-tb; transform: none; }
+button.sidebar-open:hover, button.sidebar-open:focus-visible {
+  width: auto;
+  border-color: rgba(163, 239, 240, .68);
+  background: linear-gradient(115deg, rgba(28, 64, 80, .96), rgba(13, 36, 54, .96));
+  box-shadow: 0 13px 37px rgba(0, 10, 28, .35), 0 0 22px rgba(94, 204, 221, .1);
+  color: #f1ffff;
+}
+button.sidebar-open:focus-visible { outline: 2px solid #a6f4ef; outline-offset: 3px; }
+@media (max-width: 860px) { button.sidebar-open { bottom: 14px; left: 14px; min-width: 110px; height: 44px; } }
+@media (prefers-reduced-motion: reduce) { button.sidebar-open { transition: none; } }

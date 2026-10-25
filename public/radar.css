@@ -15,10 +15,6 @@ body.radar-mode .hero, body.radar-mode .mission-overview { display: none; }
 .radar-back { display: inline-flex; align-items: center; gap: 9px; margin-top: 9px; padding: 0; border: 0; background: transparent; color: #9fb3c6; font-size: 11px; font-weight: 600; }
 .radar-back span { color: #82e9e2; transition: transform .2s ease; }
 .radar-back:hover span { transform: translate(2px, -2px); }
-.radar-launch { position: relative; display: inline-flex; height: 43px; align-items: center; gap: 11px; overflow: hidden; margin-top: 18px; padding: 0 14px 0 9px; border: 1px solid rgba(120,226,234,.34); border-radius: 11px; background: linear-gradient(115deg, rgba(114,211,226,.16), rgba(55,112,159,.08)); color: #d3f9fc; font-size: 11px; font-weight: 700; box-shadow: inset 0 1px rgba(255,255,255,.08), 0 0 29px rgba(56,181,199,.1); transition: border-color .25s ease, background .25s ease, box-shadow .25s ease, transform .25s ease; }
-.radar-launch:hover { transform: translateY(-2px); border-color: rgba(157,248,251,.62); background: linear-gradient(115deg, rgba(114,211,226,.23), rgba(55,112,159,.13)); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 0 34px rgba(70,207,224,.18); }
-.radar-launch-icon { display: grid; width: 27px; height: 27px; place-items: center; border: 1px solid rgba(144,235,237,.25); border-radius: 8px; background: rgba(117,223,223,.11); color: #b4f5ef; font-size: 14px; }
-.radar-launch-arrow { margin-left: 11px; color: #7ed9db; font-size: 15px; }
 .radar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 13px; }
 .radar-filters { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid rgba(144,188,210,.16); border-radius: 14px; background: rgba(12,23,36,.74); box-shadow: inset 0 1px rgba(255,255,255,.035); }
 .radar-filters-label { display: inline-flex; align-items: center; padding: 0 10px; color: #648ca1; font: 9px var(--font-map); letter-spacing: .12em; }
