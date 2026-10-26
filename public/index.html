@@ -4,25 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#070812">
-  <meta name="description" content="SatLink Studio: radar de satélites en directo con mapa interactivo, seguimiento de la ISS y Starlink, predicción de pases y análisis de enlaces. Explora órbitas calculadas a partir de datos TLE.">
-  <title>SatLink Studio | Radar de satélites en directo y seguimiento orbital</title>
+  <meta name="description" content="Explora un mapa satelital en directo con posiciones estimadas de la ISS, Starlink y otros objetos. Consulta órbitas y calcula próximos pases sobre tu ubicación.">
+  <title>Radar de satélites en directo | SatLink Studio</title>
   <link rel="canonical" href="https://satlink-studio.vercel.app/">
   <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="es_ES">
   <meta property="og:site_name" content="SatLink Studio">
-  <meta property="og:title" content="SatLink Studio | Radar de satélites en directo">
-  <meta property="og:description" content="Explora satélites en un mapa interactivo, sigue la ISS y Starlink y calcula sus próximos pases.">
+  <meta property="og:title" content="Radar de satélites en directo | SatLink Studio">
+  <meta property="og:description" content="Explora la posición estimada de la ISS, Starlink y otros satélites; consulta órbitas y calcula próximos pases sobre tu ubicación.">
   <meta property="og:url" content="https://satlink-studio.vercel.app/">
   <meta property="og:image" content="https://satlink-studio.vercel.app/og-satlink.png">
   <meta property="og:image:alt" content="SatLink Studio: el cielo, en movimiento. Radar de satélites en directo.">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="SatLink Studio | Radar de satélites en directo">
-  <meta name="twitter:description" content="Mapa satelital interactivo, ISS, Starlink, pases y análisis orbital en una sola herramienta.">
+  <meta name="twitter:title" content="Radar de satélites en directo | SatLink Studio">
+  <meta name="twitter:description" content="Mapa satelital con posiciones estimadas de la ISS, Starlink y otros objetos. Consulta órbitas y calcula próximos pases.">
   <meta name="twitter:image" content="https://satlink-studio.vercel.app/og-satlink.png">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"SatLink Studio","alternateName":"SatLink","url":"https://satlink-studio.vercel.app/","inLanguage":"es","description":"Radar de satélites, seguimiento orbital, predicción de pases y análisis de radiofrecuencia."}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"SatLink Studio","alternateName":"SatLink","url":"https://satlink-studio.vercel.app/","inLanguage":"es","description":"Radar de satélites en directo con posiciones orbitales estimadas, seguimiento de la ISS y Starlink, predicción de pases y análisis de enlace."}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -30,11 +30,11 @@
   <link rel="stylesheet" href="/visual-system.css?v=sat-radar-v3-20261024">
   <link rel="stylesheet" href="/radar.css?v=hero-cleanup-v1">
   <link rel="stylesheet" href="/seo-home.css?v=3">
-  <link rel="stylesheet" href="/card-nav.css?v=5">
+  <link rel="stylesheet" href="/card-nav.css?v=9">
   <link rel="stylesheet" href="/sidebar-launcher.css?v=3">
   <script src="/app.js?v=settings-polish-v1" defer></script>
   <script src="/radar.js?v=sat-radar-pan-performance-v3-20261024" defer></script>
-  <script src="/card-nav.js?v=4" defer></script>
+  <script src="/card-nav.js?v=5" defer></script>
 </head>
 <body>
   <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -85,12 +85,12 @@
     <main class="main-content">
       <header class="topbar card-nav-host" id="inicio">
         <nav class="sat-card-nav" data-open="false" aria-label="Navegación principal">
-          <div class="card-nav-bar">
+          <div class="card-nav-bar" data-nosnippet>
             <button class="card-nav-toggle" type="button" aria-expanded="false" aria-controls="sat-main-menu"><span class="card-nav-lines" aria-hidden="true"><i></i><i></i></span><span class="card-nav-toggle-label">Menú</span></button>
             <a class="card-nav-brand" href="#inicio" aria-label="SatLink Studio, consola"><span class="card-nav-brand-icon" aria-hidden="true">◎</span><span>SATLINK<small>ORBITAL STUDIO</small></span></a>
-            <a class="card-nav-quick" href="/?view=radar">Abrir Sat-Radar <span aria-hidden="true">↗</span></a>
+            <a class="card-nav-quick card-nav-quick--radar" href="/?view=radar"><span class="specular-button__label">Abrir Sat-Radar</span></a>
           </div>
-          <div class="card-nav-panel" id="sat-main-menu">
+          <div class="card-nav-panel" id="sat-main-menu" data-nosnippet>
             <a class="card-nav-card is-current" href="#inicio" aria-current="page"><span class="card-nav-index">01 / EXPLORAR <span aria-hidden="true">◎</span></span><strong>Consola</strong><span class="card-nav-description">Radar, globo y herramientas orbitales en una sola vista.</span><span class="card-nav-action">Abrir consola <span aria-hidden="true">↗</span></span></a>
             <a class="card-nav-card" href="#guias"><span class="card-nav-index">02 / APRENDER <span aria-hidden="true">✦</span></span><strong>Guías</strong><span class="card-nav-description">Entiende los datos y descubre qué puedes calcular.</span><span class="card-nav-action">Explorar guías <span aria-hidden="true">↗</span></span></a>
             <a class="card-nav-card" href="/about-us"><span class="card-nav-index">03 / PROYECTO <span aria-hidden="true">⌁</span></span><strong>About us</strong><span class="card-nav-description">Conoce SatLink y cómo interpreta las órbitas.</span><span class="card-nav-action">Conocer el proyecto <span aria-hidden="true">↗</span></span></a>
@@ -102,11 +102,11 @@
         <div class="hero-orbit" aria-hidden="true"><i></i><span></span></div>
         <div class="hero-copy">
           <div class="eyebrow"><span class="eyebrow-line"></span> SATLINK · RADAR DE SATÉLITES EN DIRECTO</div>
-          <h1>Tu misión,<br><span>en órbita.</span></h1>
-          <p>Radar de satélites en directo, seguimiento de la ISS y Starlink, predicción de pases y análisis de enlace desde una sola consola.</p>
+          <h1>Radar de satélites<br><span>en directo.</span></h1>
+          <p>Explora un mapa con posiciones estimadas de la ISS, Starlink y otros satélites. Consulta altitud y trayectoria, y calcula próximos pases sobre tu ubicación.</p>
         </div>
 
-        <div class="view-switcher">
+        <div class="view-switcher" data-nosnippet>
           <span class="switcher-label">HERRAMIENTA ACTIVA</span>
           <button id="view-select-trigger" class="view-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="view-menu">
             <span class="trigger-icon" aria-hidden="true">◉</span><span id="active-view-name">Globo 3D</span><svg class="chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>

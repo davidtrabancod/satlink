@@ -7,21 +7,21 @@ const origin = 'https://satlink-studio.vercel.app';
 const pages = [
   {
     slug: 'radar-de-satelites',
-    title: 'Radar de satélites en directo | Sat-Radar de SatLink Studio',
-    description: 'Explora un radar de satélites en un mapa interactivo: ISS, Starlink, geoestacionarios y otros objetos activos. Filtra grupos y consulta órbitas calculadas desde TLE.',
+    title: 'Radar de satélites en directo | SatLink Studio',
+    description: 'Explora un mapa de satélites con posiciones estimadas de la ISS, Starlink y otros grupos. Filtra objetos, consulta sus órbitas y abre su ficha NORAD.',
     eyebrow: '01 / SAT-RADAR',
     heading: 'Radar de satélites',
     lead: 'Explora los satélites del catálogo en un mapa, filtra constelaciones y abre la ficha orbital de cada objeto.',
     view: 'radar',
     cta: 'Abrir el radar de satélites',
     body: `
-      <section><h2>Un mapa para explorar la actividad orbital</h2><p>Sat-Radar representa la posición estimada de los objetos incluidos en los catálogos de estaciones, Starlink, órbita geoestacionaria y satélites activos. Cada punto del mapa puede seleccionarse para consultar su nombre, identificador NORAD, latitud, longitud, altitud, velocidad, inclinación y periodo orbital. Puedes activar o desactivar grupos, buscar por nombre o NORAD y acercarte a una región concreta.</p><p>El mapa actualiza las posiciones calculadas aproximadamente cada 10 segundos mientras está abierto. La vista de relieve aparece al acercarte; los controles permiten ampliar el zoom y desplazar el mapa.</p></section>
+      <section><h2>Mapa de satélites en directo y fichas orbitales</h2><p>Sat-Radar representa la posición estimada de los objetos incluidos en los catálogos de estaciones, Starlink, órbita geoestacionaria y satélites activos. Cada punto del mapa puede seleccionarse para consultar su nombre, identificador NORAD, latitud, longitud, altitud, velocidad, inclinación y periodo orbital. Puedes activar o desactivar grupos, buscar por nombre o NORAD y acercarte a una región concreta.</p><p>El mapa actualiza las posiciones calculadas aproximadamente cada 10 segundos mientras está abierto. La vista de relieve aparece al acercarte; los controles permiten ampliar el zoom y desplazar el mapa.</p></section>
       <section><h2>¿Qué significa «en directo»?</h2><p>Las posiciones se calculan con el modelo orbital SGP4 a partir de elementos TLE publicados por CelesTrak. No son señales GPS recibidas directamente de los satélites. La frecuencia de dibujo no equivale a la frecuencia de actualización de los datos orbitales: un TLE antiguo o una maniobra reciente pueden hacer que la posición estimada difiera de la real. Si un grupo no está disponible, el radar puede mostrar solo los grupos accesibles.</p></section>
       <section><h2>Cómo usar Sat-Radar</h2><ol><li>Abre el radar y selecciona las capas que quieras ver.</li><li>Usa la búsqueda para localizar una misión o un número NORAD.</li><li>Selecciona un círculo del mapa para abrir su ficha orbital.</li><li>Acerca el mapa para explorar el relieve y la zona bajo la trayectoria.</li></ol><p>Si prefieres seguir un único objeto, consulta la guía de <a href="/satelites-en-directo">seguimiento de satélites en directo</a>. Para saber cuándo pasará sobre ti, utiliza la <a href="/prediccion-de-pases">predicción de pases</a>.</p></section>`
   },
   {
     slug: 'satelites-en-directo',
-    title: 'Satélites en directo: ISS y Starlink en el mapa | SatLink Studio',
+    title: 'Satélites en directo: ISS y Starlink | SatLink Studio',
     description: 'Sigue satélites en directo sobre el globo 3D y el mapa 2D. Consulta la posición calculada de la ISS, Starlink y otros objetos y entiende cómo se obtiene.',
     eyebrow: '02 / SEGUIMIENTO',
     heading: 'Satélites en directo',
@@ -29,13 +29,13 @@ const pages = [
     view: 'globe',
     cta: 'Abrir el seguimiento orbital',
     body: `
-      <section><h2>Seguimiento de la ISS, Starlink y otros satélites</h2><p>SatLink Studio permite elegir un objeto de los grupos de estaciones, Starlink, geoestacionarios y satélites activos. Puedes buscar por nombre o número NORAD y consultar su latitud, longitud, altitud y velocidad. La vista de globo 3D ayuda a entender la órbita alrededor de la Tierra; el tracker 2D muestra la trayectoria sobre el mapa terrestre.</p><p>El satélite seleccionado también sirve de referencia para las otras herramientas de la consola: la predicción de pases y el análisis de enlace. Así puedes pasar de una posición global a una pregunta concreta: ¿cuándo estará por encima de mi estación?</p></section>
+      <section><h2>¿Dónde está la ISS ahora? Sigue también Starlink</h2><p>SatLink Studio permite elegir un objeto de los grupos de estaciones, Starlink, geoestacionarios y satélites activos. Puedes buscar por nombre o número NORAD y consultar su latitud, longitud, altitud y velocidad. La vista de globo 3D ayuda a entender la órbita alrededor de la Tierra; el tracker 2D muestra la trayectoria sobre el mapa terrestre.</p><p>El satélite seleccionado también sirve de referencia para las otras herramientas de la consola: la predicción de pases y el análisis de enlace. Así puedes pasar de una posición global a una pregunta concreta: ¿cuándo estará por encima de mi estación?</p></section>
       <section><h2>Cómo se calcula la posición</h2><p>El seguimiento utiliza elementos orbitales TLE y propagación orbital. En cada actualización, SatLink estima dónde debería encontrarse el satélite en ese instante. «En directo» describe el cálculo y la visualización continuos, no una conexión de telemetría con el vehículo. La calidad depende de la vigencia del TLE, del tipo de órbita y de posibles maniobras que aún no estén reflejadas en los datos.</p></section>
       <section><h2>Empieza con una misión</h2><ol><li>Abre la consola orbital y elige un grupo en el panel lateral.</li><li>Busca ISS, un satélite Starlink u otro objeto del catálogo.</li><li>Alterna entre globo 3D y tracker 2D en «Vista activa».</li><li>Introduce tu ubicación para calcular la visibilidad local.</li></ol><p>Si quieres inspeccionar muchos objetos a la vez, abre el <a href="/radar-de-satelites">radar de satélites</a>. Para planificar una observación, revisa los <a href="/prediccion-de-pases">próximos pases</a>.</p></section>`
   },
   {
     slug: 'prediccion-de-pases',
-    title: 'Predicción de pases de satélites para tu ubicación | SatLink Studio',
+    title: 'Predicción de pases de satélites | SatLink Studio',
     description: 'Calcula los próximos pases de un satélite sobre tu ubicación: AOS, máxima elevación y LOS. Ajusta la estación y la máscara de elevación en SatLink Studio.',
     eyebrow: '03 / VISIBILIDAD',
     heading: 'Predicción de pases',
@@ -49,7 +49,7 @@ const pages = [
   },
   {
     slug: 'enlace-satelital-doppler',
-    title: 'Presupuesto de enlace satelital y efecto Doppler | SatLink Studio',
+    title: 'Enlace satelital y efecto Doppler | SatLink Studio',
     description: 'Simula un enlace satelital con distancia oblicua, pérdida en espacio libre, potencia recibida, C/N, Eb/N₀, margen y desplazamiento Doppler.',
     eyebrow: '04 / RADIOFRECUENCIA',
     heading: 'Enlace satelital y Doppler',
@@ -65,7 +65,7 @@ const pages = [
 
 const escape = (value) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const toolNames = { radar: 'Sat-Radar', globe: 'Globo 3D', passes: 'Predicción de pases', rf: 'Enlace y Doppler' };
-const cardNav = (view) => `<nav class="sat-card-nav" data-open="false" aria-label="Navegación principal"><div class="card-nav-bar"><button class="card-nav-toggle" type="button" aria-expanded="false" aria-controls="sat-main-menu"><span class="card-nav-lines" aria-hidden="true"><i></i><i></i></span><span class="card-nav-toggle-label">Menú</span></button><a class="card-nav-brand" href="/" aria-label="SatLink Studio, consola"><span class="card-nav-brand-icon" aria-hidden="true">◎</span><span>SATLINK<small>ORBITAL STUDIO</small></span></a><a class="card-nav-quick" data-console-return href="/?view=${view}">Volver a la consola <span aria-hidden="true">↗</span></a></div><div class="card-nav-panel" id="sat-main-menu"><a class="card-nav-card" data-console-return href="/?view=${view}"><span class="card-nav-index">01 / EXPLORAR <span aria-hidden="true">◎</span></span><strong>Consola</strong><span class="card-nav-description">Radar, globo y herramientas orbitales en una sola vista.</span><span class="card-nav-action">Abrir consola <span aria-hidden="true">↗</span></span></a><a class="card-nav-card is-current" href="/#guias" aria-current="location"><span class="card-nav-index">02 / APRENDER <span aria-hidden="true">✦</span></span><strong>Guías</strong><span class="card-nav-description">Entiende los datos y descubre qué puedes calcular.</span><span class="card-nav-action">Explorar guías <span aria-hidden="true">↗</span></span></a><a class="card-nav-card" href="/about-us"><span class="card-nav-index">03 / PROYECTO <span aria-hidden="true">⌁</span></span><strong>About us</strong><span class="card-nav-description">Conoce SatLink y cómo interpreta las órbitas.</span><span class="card-nav-action">Conocer el proyecto <span aria-hidden="true">↗</span></span></a></div></nav>`;
+const cardNav = (view) => `<nav class="sat-card-nav" data-open="false" aria-label="Navegación principal"><div class="card-nav-bar" data-nosnippet><button class="card-nav-toggle" type="button" aria-expanded="false" aria-controls="sat-main-menu"><span class="card-nav-lines" aria-hidden="true"><i></i><i></i></span><span class="card-nav-toggle-label">Menú</span></button><a class="card-nav-brand" href="/" aria-label="SatLink Studio, consola"><span class="card-nav-brand-icon" aria-hidden="true">◎</span><span>SATLINK<small>ORBITAL STUDIO</small></span></a><a class="card-nav-quick" data-console-return href="/?view=${view}">Volver a la consola <span aria-hidden="true">↗</span></a></div><div class="card-nav-panel" id="sat-main-menu" data-nosnippet><a class="card-nav-card" data-console-return href="/?view=${view}"><span class="card-nav-index">01 / EXPLORAR <span aria-hidden="true">◎</span></span><strong>Consola</strong><span class="card-nav-description">Radar, globo y herramientas orbitales en una sola vista.</span><span class="card-nav-action">Abrir consola <span aria-hidden="true">↗</span></span></a><a class="card-nav-card is-current" href="/#guias" aria-current="location"><span class="card-nav-index">02 / APRENDER <span aria-hidden="true">✦</span></span><strong>Guías</strong><span class="card-nav-description">Entiende los datos y descubre qué puedes calcular.</span><span class="card-nav-action">Explorar guías <span aria-hidden="true">↗</span></span></a><a class="card-nav-card" href="/about-us"><span class="card-nav-index">03 / PROYECTO <span aria-hidden="true">⌁</span></span><strong>About us</strong><span class="card-nav-description">Conoce SatLink y cómo interpreta las órbitas.</span><span class="card-nav-action">Conocer el proyecto <span aria-hidden="true">↗</span></span></a></div></nav>`;
 
 await mkdir(join('public', 'seo'), { recursive: true });
 for (const page of pages) {
@@ -110,9 +110,9 @@ for (const page of pages) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/seo-pages.css?v=4">
-  <link rel="stylesheet" href="/card-nav.css?v=5">
+  <link rel="stylesheet" href="/card-nav.css?v=9">
   <script src="/seo-navigation.js?v=1" defer></script>
-  <script src="/card-nav.js?v=4" defer></script>
+  <script src="/card-nav.js?v=5" defer></script>
 </head>
 <body>
   <div class="atmosphere" aria-hidden="true"></div>
@@ -129,8 +129,8 @@ for (const page of pages) {
 `;
   await writeFile(join('public', 'seo', `${page.slug}.html`), html, 'utf8');
 }
-const aboutTitle = 'About us | Sobre SatLink Studio y sus datos orbitales';
-const aboutDescription = 'Conoce SatLink Studio: una plataforma para explorar órbitas, seguir satélites y entender predicciones basadas en TLE y el modelo SGP4.';
+const aboutTitle = 'Sobre SatLink Studio | Radar y seguimiento satelital';
+const aboutDescription = 'Conoce SatLink Studio, una herramienta para explorar el radar de satélites, seguir la ISS y Starlink, calcular pases y analizar órbitas estimadas.';
 const aboutUrl = `${origin}/about-us`;
 const aboutSchema = JSON.stringify({ '@context': 'https://schema.org', '@graph': [
   { '@type': 'AboutPage', name: aboutTitle, url: aboutUrl, description: aboutDescription, inLanguage: 'es', isPartOf: { '@type': 'WebSite', name: 'SatLink Studio', url: `${origin}/` } },
@@ -162,17 +162,17 @@ const aboutHtml = `<!doctype html>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/seo-pages.css?v=5">
-  <link rel="stylesheet" href="/card-nav.css?v=5">
+  <link rel="stylesheet" href="/card-nav.css?v=9">
   <link rel="stylesheet" href="/about.css?v=1">
   <script src="/seo-navigation.js?v=1" defer></script>
-  <script src="/card-nav.js?v=4" defer></script>
+  <script src="/card-nav.js?v=5" defer></script>
 </head>
 <body>
   <div class="atmosphere" aria-hidden="true"></div>
   <header class="site-header">${cardNav('globe').replace('class="card-nav-card is-current" href="/#guias" aria-current="location"', 'class="card-nav-card" href="/#guias"').replace('class="card-nav-card" href="/about-us"', 'class="card-nav-card is-current" href="/about-us" aria-current="page"')}</header>
   <main id="main">
     <nav class="breadcrumbs" aria-label="Ruta de navegación"><a data-console-return href="/?view=globe">Consola</a><span aria-hidden="true">/</span><span aria-current="page">About us</span></nav>
-    <div class="hero about-hero"><div class="orbit-art" aria-hidden="true"><i></i><i></i><i></i><span></span></div><div class="hero-copy"><div class="eyebrow"><span></span>EL PROYECTO / SATLINK STUDIO</div><h1>El espacio,<br><em>a tu alcance.</em></h1><p>SatLink reúne visualización orbital, mapas y cálculos de observación para que explorar satélites sea más claro, visual y accesible.</p><a class="primary-cta" data-console-return href="/?view=globe">Explorar la consola <span aria-hidden="true">↗</span></a></div></div>
+    <div class="hero about-hero"><div class="orbit-art" aria-hidden="true"><i></i><i></i><i></i><span></span></div><div class="hero-copy"><div class="eyebrow"><span></span>EL PROYECTO / SATLINK STUDIO</div><h1>Sobre SatLink<br><em>Studio.</em></h1><p>Una herramienta para explorar el radar de satélites, seguir la ISS y Starlink y entender los cálculos orbitales de cada vista.</p><a class="primary-cta" data-console-return href="/?view=globe">Explorar la consola <span aria-hidden="true">↗</span></a></div></div>
     <div class="content-layout"><article class="article">
       <section><h2>Qué es SatLink</h2><p>SatLink Studio es una herramienta web para observar posiciones orbitales estimadas y experimentar con escenarios de seguimiento satelital. En la <a href="/?view=radar">consola</a> puedes ver múltiples objetos a la vez con Sat-Radar, seguir un satélite en un globo 3D o en un mapa 2D, calcular próximos pases para tu ubicación y explorar parámetros de enlace de radio.</p></section>
       <section><h2>Datos que se pueden entender</h2><p>El objetivo es que cada posición dibujada tenga contexto. Los elementos orbitales TLE proceden de <a href="https://celestrak.org/" target="_blank" rel="noopener noreferrer">CelesTrak</a>; SatLink los propaga mediante el modelo SGP4 para estimar posiciones en el momento de consulta. La ubicación representada no es telemetría recibida directamente del satélite. Su precisión depende, entre otros factores, de la antigüedad de los elementos y de posibles maniobras.</p><p>Las herramientas de pases y radiofrecuencia ayudan a estudiar la geometría de una estación terrestre y a probar supuestos de enlace. Sus resultados son estimaciones para explorar y aprender, no datos operacionales certificados.</p></section>
