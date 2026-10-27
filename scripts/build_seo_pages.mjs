@@ -7,7 +7,7 @@ const origin = 'https://satlink-studio.vercel.app';
 const pages = [
   {
     slug: 'radar-de-satelites',
-    title: 'Radar de satélites en directo | SatLink Studio',
+    title: 'Cómo leer el radar de satélites: mapa y fichas NORAD | SatLink Studio',
     description: 'Explora un mapa de satélites con posiciones estimadas de la ISS, Starlink y otros grupos. Filtra objetos, consulta sus órbitas y abre su ficha NORAD.',
     eyebrow: '01 / SAT-RADAR',
     heading: 'Radar de satélites',
