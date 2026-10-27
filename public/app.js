@@ -465,7 +465,6 @@
         guideScrollFrame = requestAnimationFrame(animate);
       });
     });
-    $("#radar-exit").addEventListener("click", () => setTab("globe"));
     window.addEventListener("satlink:open-satellite", async (event) => {
       const { group, name } = event.detail;
       state.group = group;
