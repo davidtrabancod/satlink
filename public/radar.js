@@ -684,4 +684,5 @@
   });
   new ResizeObserver(resize).observe(stage);
   window.SatRadar = { activate, deactivate };
+  if (document.body.classList.contains("radar-mode") && !$("#radar-view").hidden) activate();
 })();
