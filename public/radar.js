@@ -7,6 +7,7 @@
   const terrainContext = terrainCanvas.getContext("2d", { alpha: false });
   const terrainCache = { width: 0, height: 0, pad: 0, zoom: 0, scale: 0, panX: 0, panY: 0, dpr: 0, dirty: true };
   let context = screenContext;
+  let loadingStartedAt = 0, hideLoadingTimer = 0;
   const colors = { stations: "#e5fb9a", starlink: "#78e2ee", geo: "#bca9ff", active: "#89a8c5" };
   const groups = Object.keys(colors);
   const maxZoom = 256;
@@ -28,6 +29,25 @@
   };
 
   function status(message) { $("#radar-status").textContent = message; }
+  function setInitialLoading(visible, detail) {
+    const loader = $("#radar-loading");
+    if (!loader) return;
+    if (visible) {
+      if (loader.hidden) loadingStartedAt = performance.now();
+      window.clearTimeout(hideLoadingTimer);
+      hideLoadingTimer = 0;
+      loader.hidden = false;
+    } else if (!loader.hidden) {
+      const remaining = Math.max(0, 640 - (performance.now() - loadingStartedAt));
+      window.clearTimeout(hideLoadingTimer);
+      hideLoadingTimer = window.setTimeout(() => {
+        loader.hidden = true;
+        loadingStartedAt = 0;
+        hideLoadingTimer = 0;
+      }, remaining);
+    }
+    if (detail) $("#radar-loading-detail").textContent = detail;
+  }
   function format(value, digits = 1) { return Number(value).toLocaleString("es-ES", { minimumFractionDigits: digits, maximumFractionDigits: digits }); }
   function groupColor(group) { return colors[group] || colors.active; }
   function selectedSatellite() { return radar.satellites.find((satellite) => satellite.id === radar.selectedId); }
@@ -535,7 +555,10 @@
     radar.request?.abort();
     const controller = new AbortController(), serial = ++radar.serial;
     radar.request = controller;
-    if (!radar.satellites.length) status("Sincronizando posiciones orbitales…");
+    if (!radar.satellites.length) {
+      status("Sincronizando posiciones orbitales…");
+      setInitialLoading(true, "Propagando posiciones desde TLE");
+    }
     try {
       const response = await fetch("/api/radar?group=all", { signal: controller.signal });
       const result = await response.json();
@@ -543,6 +566,7 @@
       if (serial !== radar.serial || !radar.active) return;
       const previousPosition = selectedPosition();
       radar.satellites = result.satellites || [];
+      if (radar.satellites.length) setInitialLoading(false);
       const updatedSelection = selectedSatellite();
       if (updatedSelection && previousPosition) {
         radar.selectedMotion = {
@@ -557,7 +581,10 @@
       radar.sourceNote = `${stale}${unavailable}`;
       updateVisibility();
     } catch (error) {
-      if (error.name !== "AbortError" && serial === radar.serial) status(`No se pudieron actualizar las posiciones: ${error.message}. Reintentando…`);
+      if (error.name !== "AbortError" && serial === radar.serial) {
+        status(`No se pudieron actualizar las posiciones: ${error.message}. Reintentando…`);
+        if (!radar.satellites.length) setInitialLoading(true, "Sin respuesta orbital · reintentando conexión");
+      }
     } finally {
       if (serial === radar.serial && radar.active) radar.timer = window.setTimeout(refresh, 10000);
     }

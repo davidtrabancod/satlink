@@ -28,12 +28,12 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css?v=sat-radar-v3-20261024">
   <link rel="stylesheet" href="/visual-system.css?v=sat-radar-v3-20261024">
-  <link rel="stylesheet" href="/radar.css?v=hero-cleanup-v1">
+  <link rel="stylesheet" href="/radar.css?v=comet-loading-v1">
   <link rel="stylesheet" href="/seo-home.css?v=3">
   <link rel="stylesheet" href="/card-nav.css?v=9">
   <link rel="stylesheet" href="/sidebar-launcher.css?v=3">
   <script src="/app.js?v=settings-polish-v1" defer></script>
-  <script src="/radar.js?v=sat-radar-init-v1" defer></script>
+  <script src="/radar.js?v=sat-radar-init-v3" defer></script>
   <script src="/card-nav.js?v=5" defer></script>
 </head>
 <body>
@@ -150,6 +150,11 @@
         </div>
         <div class="radar-stage" id="radar-stage">
           <canvas id="radar-canvas" aria-label="Mapa interactivo de posiciones satelitales; utiliza la búsqueda para seleccionar un satélite"></canvas>
+          <div id="radar-loading" class="radar-loading" role="status" aria-live="polite" aria-atomic="true" hidden>
+            <div class="radar-loading-dial" aria-hidden="true"><div class="radar-loading-ticks"></div><div class="radar-loading-comet"><i></i></div><div class="radar-loading-core"><i></i></div></div>
+            <div class="radar-loading-copy"><span>ENLACE ORBITAL</span><strong>Adquiriendo señales</strong><small id="radar-loading-detail">Propagando posiciones desde TLE</small></div>
+            <div class="radar-loading-progress" aria-hidden="true"><i></i></div>
+          </div>
           <div class="radar-sweep" aria-hidden="true"></div>
           <div class="radar-map-top"><span><i></i> EN DIRECTO · SGP4</span><span id="radar-timestamp">SINCRONIZANDO…</span></div>
           <div class="radar-map-side"><span>90° N</span><span>0°</span><span>90° S</span></div>
